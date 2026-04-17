@@ -26,7 +26,8 @@ python3 -m venv .venv
 .venv/bin/python scripts/map_static.py --state NM --dpi 300
 
 # 4. Serve the interactive web map
-python3 -m http.server 8000
+# PMTiles requires a server that supports HTTP Range requests
+npx serve . -p 8000
 # → open http://localhost:8000/
 ```
 

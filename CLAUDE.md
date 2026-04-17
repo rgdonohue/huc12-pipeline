@@ -110,7 +110,7 @@ python3 -m venv .venv
 # Each run
 .venv/bin/python scripts/fetch_huc12.py --state NM   # fetches + generates PMTiles if tippecanoe available
 .venv/bin/python scripts/map_static.py --state NM --dpi 300
-python3 -m http.server 8000   # then open http://localhost:8000/
+npx serve . -p 8000   # then open http://localhost:8000/ — must use this, NOT python3 -m http.server
 ```
 
 No automated tests. Verification is end-to-end: fetch → render → load web map →
