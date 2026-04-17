@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "huc12-pipeline"
+version = "0.1.0"
+description = "Per-state USGS HUC-12 watershed boundary pipeline: fetch, process, and render."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["GIS", "watersheds", "USGS", "HUC", "geospatial", "hydrology"]
+dependencies = [
+    "geopandas>=0.14",
+    "shapely>=2.0",
+    "pyproj>=3.6",
+    "requests>=2.31",
+    "matplotlib>=3.8",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyarrow>=14.0",
+]
+
+[project.scripts]
+huc12-fetch  = "huc12_pipeline.fetch:main"
+huc12-render = "huc12_pipeline.render:main"
+
+[project.urls]
+Repository = "https://github.com/rgdonohue/huc12-pipeline"
+
+[tool.hatch.build.targets.wheel]
+packages = ["huc12_pipeline"]
