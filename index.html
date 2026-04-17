@@ -39,6 +39,15 @@
       font-size: 11px; font-weight: 700;
       padding: 2px 8px; border-radius: 3px; letter-spacing: 0.08em;
     }
+    #state-switcher { display: flex; gap: 4px; margin-left: 8px; }
+    .state-pill {
+      font-size: 11px; font-weight: 600; padding: 2px 9px;
+      border-radius: 3px; border: 1px solid #333;
+      color: #666; text-decoration: none; letter-spacing: 0.06em;
+      transition: all 0.15s;
+    }
+    .state-pill:hover { color: #ccc; border-color: #555; }
+    .state-pill.active { background: #2a4a6a; color: #8BBFDF; border-color: #3a6a9a; }
 
     /* ---- Map ---- */
     #map { flex: 1; position: relative; }
@@ -132,6 +141,10 @@
 <header>
   <h1>HUC-12 Watershed Basin Map</h1>
   <span id="state-badge">—</span>
+  <nav id="state-switcher">
+    <a class="state-pill" href="?state=nm" data-state="nm">NM</a>
+    <a class="state-pill" href="?state=co" data-state="co">CO</a>
+  </nav>
   <span class="sub">USGS Watershed Boundary Dataset · <span id="feature-count">—</span> subwatersheds</span>
 </header>
 
@@ -175,16 +188,24 @@
 
 <script>
 // ---------------------------------------------------------------------------
-// Configuration
-// Edit these three paths when deploying to a hosted environment.
+// State routing — driven by ?state=nm or ?state=co URL param
 // ---------------------------------------------------------------------------
-const CONFIG = {
-  pmtilesPath:    "data/processed/huc12_nm.pmtiles",
-  huc8PmtilesPath:"data/processed/huc8_nm.pmtiles",
-  metaPath:       "data/processed/huc12_nm_meta.json",
+const STATES = { nm: "New Mexico", co: "Colorado" };
+const urlState  = new URLSearchParams(window.location.search).get("state")?.toLowerCase();
+const stateSlug = (urlState && STATES[urlState]) ? urlState : "nm";
 
-  // Base URL for download artifacts. Points to GitHub Releases for hosted deployment.
-  // For local dev, change back to "data/processed/"
+// Mark active state pill
+document.querySelectorAll(".state-pill").forEach(a => {
+  if (a.dataset.state === stateSlug) a.classList.add("active");
+});
+
+const CONFIG = {
+  pmtilesPath:     `data/processed/huc12_${stateSlug}.pmtiles`,
+  huc8PmtilesPath: `data/processed/huc8_${stateSlug}.pmtiles`,
+  metaPath:        `data/processed/huc12_${stateSlug}_meta.json`,
+
+  // GitHub Releases hosts the heavy download artifacts (GeoJSON, GPKG, CSV).
+  // For fully local dev, change to "data/processed/"
   downloadBaseUrl: "https://github.com/rgdonohue/huc12-pipeline/releases/download/v0.1.0/",
 
   maxLegendItems: 14,
@@ -256,7 +277,7 @@ map.on("load", async () => {
   } catch (err) {
     showError(`Could not load map metadata: ${err.message}<br>
       Make sure <code>${CONFIG.metaPath}</code> exists.<br>
-      Run: <code>python scripts/fetch_huc12.py --state NM</code>`);
+      Run: <code>python scripts/fetch_huc12.py --state ${stateSlug.toUpperCase()}</code>`);
     return;
   }
 

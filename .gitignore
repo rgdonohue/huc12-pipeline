@@ -1,6 +1,12 @@
 .venv/
-data/
 output/
+
+# Raw and heavy processed files — too large for git, hosted on GitHub Releases
+data/
+!data/
+!data/processed/
+!data/processed/*.pmtiles
+!data/processed/*_meta.json
 .DS_Store
 __pycache__/
 *.pyc
