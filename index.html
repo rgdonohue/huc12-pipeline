@@ -320,8 +320,8 @@ const CONFIG = {
 };
 
 const STATE_MAP = {
-  nm: { center: [-106.1, 34.5], zoom: 6.0, minZoom: 5.0, maxBounds: [[-112, 28], [-100, 40]] },
-  co: { center: [-105.5, 39.0], zoom: 6.5, minZoom: 5.0, maxBounds: [[-112, 34], [ -99, 44]] },
+  nm: { center: [-106.1, 34.5], zoom: 5.8, minZoom: 4.8, maxBounds: [[-112, 28], [-100, 40]] },
+  co: { center: [-105.5, 39.0], zoom: 5.8, minZoom: 4.8, maxBounds: [[-112, 34], [ -99, 44]] },
 };
 const SM = STATE_MAP[stateSlug] || STATE_MAP.nm;
 
@@ -589,17 +589,24 @@ map.on("load", async () => {
   setupDownloadLinks(meta);
   setupInteractions();
 
-  // Fit to data extent via PMTiles header metadata
+  // Fit to data extent via PMTiles header metadata.
+  // Padding values clear the UI chrome:
+  //   top 135    — zoom controls (~122px tall at top-left)
+  //   left 260   — legend (~220px wide + offset)
+  //   right 220  — controls panel (~200px wide + offset)
+  //   bottom 55  — attribution bar
   try {
-    const pt = await protocol.get(new pmtiles.PMTiles(CONFIG.pmtilesPath));
-    const h = pt.getHeader ? await pt.getHeader() : null;
+    const pt = new pmtiles.PMTiles(CONFIG.pmtilesPath);
+    const h  = await pt.getHeader();
     if (h && h.minLon != null) {
       map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], {
-        padding: { top: 70, bottom: 70, left: 260, right: 190 },
+        padding: { top: 135, bottom: 55, left: 260, right: 220 },
         duration: 0,
       });
     }
-  } catch (_) { /* stays at default center/zoom */ }
+  } catch (err) {
+    console.warn("fitBounds from PMTiles header failed; using default center/zoom:", err);
+  }
 
   // First-load hint toast — auto-dismisses after 4.5s or on first click
   const hintEl = document.getElementById("hint-toast");
