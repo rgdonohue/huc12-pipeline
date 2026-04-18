@@ -241,7 +241,7 @@ def save(gdf: gpd.GeoDataFrame, state_abbr: str) -> None:
     size_mb = gpkg_path.stat().st_size / 1_048_576
     print(f"  Saved GPKG     → {gpkg_path}  ({size_mb:.1f} MB)")
 
-    # Metadata JSON (used by web map for color building without loading full GeoJSON)
+    # Metadata JSON (used by web map for color building and download link sizes)
     meta = {
         "state":      slug.upper(),
         "huc2_codes": sorted(gdf["huc2"].unique().tolist()),
@@ -249,6 +249,11 @@ def save(gdf: gpd.GeoDataFrame, state_abbr: str) -> None:
         "huc8_count": int(gdf["huc8"].nunique()),
         "huc12_count": int(len(gdf)),
         "area_sqmi":  round(float(gdf["area_sqmi"].sum()), 1),
+        "download_sizes": {
+            "geojson": geojson_path.stat().st_size,
+            "gpkg":    gpkg_path.stat().st_size,
+            "csv":     csv_path.stat().st_size,
+        },
     }
     meta_path = DATA_PROCESSED / f"huc12_{slug}_meta.json"
     meta_path.write_text(json.dumps(meta, indent=2))

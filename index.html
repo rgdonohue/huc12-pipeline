@@ -58,7 +58,12 @@
       background: rgba(20,20,20,0.92); border: 1px solid #333;
       border-radius: 6px; padding: 10px 12px; font-size: 11px;
       max-width: 220px; z-index: 5; backdrop-filter: blur(4px);
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
     }
+    #legend::-webkit-scrollbar { width: 4px; }
+    #legend::-webkit-scrollbar-track { background: transparent; }
+    #legend::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
     #legend h3 {
       font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
       text-transform: uppercase; color: #aaa; margin-bottom: 8px;
@@ -132,8 +137,6 @@
     .dl-static.unavailable { opacity: 0.35; pointer-events: none; }
     .dl-size { color: #555; font-size: 9px; margin-left: 8px; }
 
-    /* ---- Attribution ---- */
-    #data-note { position: absolute; bottom: 8px; right: 8px; font-size: 10px; color: #555; z-index: 5; }
   </style>
 </head>
 <body>
@@ -181,7 +184,6 @@
     </div>
   </div>
 
-  <div id="data-note">Source: USGS National Map WBD &nbsp;·&nbsp; Small Batch Maps</div>
 </div>
 
 <script>
@@ -260,7 +262,10 @@ const map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-left");
-map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+map.addControl(new maplibregl.AttributionControl({
+  compact: true,
+  customAttribution: "USGS WBD · Small Batch Maps",
+}), "bottom-right");
 
 // ---------------------------------------------------------------------------
 // State
@@ -360,7 +365,10 @@ map.on("load", async () => {
     const pt = await protocol.get(new pmtiles.PMTiles(CONFIG.pmtilesPath));
     const h = pt.getHeader ? await pt.getHeader() : null;
     if (h && h.minLon != null) {
-      map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], { padding: 40, duration: 0 });
+      map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], {
+        padding: { top: 70, bottom: 70, left: 260, right: 190 },
+        duration: 0,
+      });
     }
   } catch (_) {
     // fitBounds fails gracefully — map stays at default center/zoom
@@ -386,37 +394,26 @@ function buildLegend(huc4Codes) {
 // Download panel
 // ---------------------------------------------------------------------------
 function setupDownloadLinks(meta) {
-  const slug = meta.state.toLowerCase();
-  const base = CONFIG.downloadBaseUrl;
+  const slug  = meta.state.toLowerCase();
+  const base  = CONFIG.downloadBaseUrl;
+  const sizes = meta.download_sizes || {};
+
+  const fmt = bytes => bytes > 1_048_576
+    ? `${(bytes / 1_048_576).toFixed(0)} MB`
+    : `${(bytes / 1024).toFixed(0)} KB`;
 
   const links = [
-    { id: "dl-geojson", file: `huc12_${slug}.geojson`, szId: "sz-geojson" },
-    { id: "dl-gpkg",    file: `huc12_${slug}.gpkg`,    szId: "sz-gpkg"    },
-    { id: "dl-csv",     file: `huc12_${slug}_summary.csv`, szId: "sz-csv" },
+    { id: "dl-geojson", file: `huc12_${slug}.geojson`,      szId: "sz-geojson", key: "geojson" },
+    { id: "dl-gpkg",    file: `huc12_${slug}.gpkg`,          szId: "sz-gpkg",    key: "gpkg"    },
+    { id: "dl-csv",     file: `huc12_${slug}_summary.csv`,   szId: "sz-csv",     key: "csv"     },
   ];
 
-  links.forEach(({ id, file, szId }) => {
+  links.forEach(({ id, file, szId, key }) => {
     const el = document.getElementById(id);
     el.href = `${base}${file}`;
-    el.setAttribute("download", file);
-    fetchSize(`${base}${file}`, szId, id);
+    el.removeAttribute("download"); // let browser follow redirect; download attr breaks cross-origin
+    if (sizes[key]) document.getElementById(szId).textContent = fmt(sizes[key]);
   });
-}
-
-async function fetchSize(url, labelId, linkId) {
-  try {
-    const r = await fetch(url, { method: "HEAD" });
-    if (!r.ok) { document.getElementById(linkId)?.classList.add("unavailable"); return; }
-    const bytes = parseInt(r.headers.get("content-length") || "0");
-    if (!bytes) return;
-    const label = bytes > 1_048_576
-      ? `${(bytes / 1_048_576).toFixed(0)} MB`
-      : `${(bytes / 1024).toFixed(0)} KB`;
-    const el = document.getElementById(labelId);
-    if (el) el.textContent = label;
-  } catch (_) {
-    document.getElementById(linkId)?.classList.add("unavailable");
-  }
 }
 
 function toggleDownloadSection() {
