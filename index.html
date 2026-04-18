@@ -88,16 +88,38 @@
     .legend-h-label strong { color: #ddd; font-weight: 600; display: block; font-size: 10px; }
     .legend-h-label span { color: #555; font-size: 9px; }
 
-    /* HUC-2 group headers in legend */
+    /* HUC-2 group headers in legend — clickable/hoverable */
     .legend-group {
       font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
       text-transform: uppercase; color: #555;
-      margin: 10px 0 5px;
-      padding-top: 8px; border-top: 1px solid #1e1e1e;
+      margin: 10px -4px 4px; padding: 7px 4px 4px;
+      border-top: 1px solid #1e1e1e;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
     }
-    .legend-group:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+    .legend-group:first-of-type { margin-top: 0; border-top: none; padding-top: 2px; }
+    .legend-group:hover { background: rgba(50,75,105,0.35); color: #888; }
+    .legend-group.pinned {
+      background: rgba(70,105,145,0.45); color: #8BBFDF;
+      box-shadow: inset 2px 0 0 #8BBFDF;
+    }
 
-    .legend-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 5px; }
+    .legend-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      margin: 0 -4px 3px; padding: 3px 4px;
+      border-radius: 3px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .legend-item:hover { background: rgba(50,75,105,0.35); }
+    .legend-item.pinned {
+      background: rgba(70,105,145,0.5);
+      box-shadow: inset 2px 0 0 #8BBFDF;
+    }
+    .legend-item.cross-hover {
+      background: rgba(90,135,180,0.45);
+      box-shadow: inset 2px 0 0 #c8dff0;
+    }
     .legend-swatch {
       width: 13px; height: 13px; border-radius: 2px; flex-shrink: 0; margin-top: 1px;
       border: 1px solid rgba(255,255,255,0.1);
@@ -409,9 +431,81 @@ map.addControl(new maplibregl.AttributionControl({
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
-let huc4ColorMap  = {};
-let activeToggles = { fill: true, huc8: true };
-let popup         = null;
+let huc4ColorMap   = {};
+let activeToggles  = { fill: true, huc8: true };
+let popup          = null;
+let hoverEmphasis  = null;  // { type: "huc4"|"huc2", code } — from legend hover
+let pinnedEmphasis = null;  // { type: "huc4"|"huc2", code } — from legend click
+
+// ---------------------------------------------------------------------------
+// Emphasis — dim non-matching, brighten matching HUC-4 or HUC-2 family
+// ---------------------------------------------------------------------------
+const DEFAULT_FILL_OPACITY = [
+  "case", ["boolean", ["feature-state", "hover"], false], 0.82, 0.58,
+];
+
+function applyEmphasis() {
+  const active = hoverEmphasis || pinnedEmphasis;
+  if (!map.getLayer("huc12-fill")) return;
+
+  if (!active) {
+    map.setPaintProperty("huc12-fill", "fill-opacity", DEFAULT_FILL_OPACITY);
+    map.setPaintProperty("huc12-line", "line-opacity", 0.35);
+    return;
+  }
+
+  const matchTarget = active.type === "huc4"
+    ? ["slice", ["get", "huc12"], 0, 4]
+    : ["slice", ["get", "huc12"], 0, 2];
+
+  map.setPaintProperty("huc12-fill", "fill-opacity", [
+    "case",
+    ["==", matchTarget, active.code],
+    ["case", ["boolean", ["feature-state", "hover"], false], 0.92, 0.82],
+    0.12,
+  ]);
+  map.setPaintProperty("huc12-line", "line-opacity", [
+    "case", ["==", matchTarget, active.code], 0.6, 0.08,
+  ]);
+}
+
+function setHoverEmphasis(e) {
+  if (JSON.stringify(hoverEmphasis) === JSON.stringify(e)) return;
+  hoverEmphasis = e;
+  applyEmphasis();
+}
+
+function togglePin(e) {
+  const same = pinnedEmphasis
+    && pinnedEmphasis.type === e.type
+    && pinnedEmphasis.code === e.code;
+  pinnedEmphasis = same ? null : e;
+  document.querySelectorAll(".legend-item.pinned, .legend-group.pinned")
+    .forEach(el => el.classList.remove("pinned"));
+  if (pinnedEmphasis) {
+    const sel = pinnedEmphasis.type === "huc4"
+      ? `.legend-item[data-huc4="${pinnedEmphasis.code}"]`
+      : `.legend-group[data-huc2="${pinnedEmphasis.code}"]`;
+    document.querySelector(sel)?.classList.add("pinned");
+  }
+  applyEmphasis();
+}
+
+// Cross-highlight: map polygon hover → legend row
+function highlightLegendFromMap(huc4) {
+  document.querySelectorAll(".legend-item.cross-hover")
+    .forEach(el => el.classList.remove("cross-hover"));
+  if (!huc4) return;
+  const el = document.querySelector(`.legend-item[data-huc4="${huc4}"]`);
+  if (!el) return;
+  el.classList.add("cross-hover");
+  const legend = document.getElementById("legend");
+  const eRect = el.getBoundingClientRect();
+  const lRect = legend.getBoundingClientRect();
+  if (eRect.top < lRect.top || eRect.bottom > lRect.bottom) {
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Load metadata + build map
@@ -537,18 +631,28 @@ function buildLegend(huc4Codes) {
     const header = document.createElement("div");
     header.className = "legend-group";
     header.textContent = HUC2_NAMES[huc2] || `HUC-2 ${huc2}`;
+    header.dataset.huc2 = huc2;
+    header.title = `Click to pin ${HUC2_NAMES[huc2] || huc2} basin family`;
+    header.addEventListener("mouseenter", () => setHoverEmphasis({ type: "huc2", code: huc2 }));
+    header.addEventListener("mouseleave", () => setHoverEmphasis(null));
+    header.addEventListener("click", () => togglePin({ type: "huc2", code: huc2 }));
     container.appendChild(header);
 
     for (const code of groups[huc2]) {
       const name = HUC4_NAMES[code];
       const div = document.createElement("div");
       div.className = "legend-item";
+      div.dataset.huc4 = code;
+      div.title = `Click to pin ${name || code}`;
       div.innerHTML = `
         <div class="legend-swatch" style="background:${huc4ColorMap[code]};"></div>
         <div class="legend-name">
           ${name || "Subregion"}
           <span class="legend-code">${code}</span>
         </div>`;
+      div.addEventListener("mouseenter", () => setHoverEmphasis({ type: "huc4", code }));
+      div.addEventListener("mouseleave", () => setHoverEmphasis(null));
+      div.addEventListener("click", () => togglePin({ type: "huc4", code }));
       container.appendChild(div);
     }
   }
@@ -599,6 +703,10 @@ function setupInteractions() {
     }
     hoveredId = e.features[0].id;
     map.setFeatureState({ source: "huc12", sourceLayer: "huc12", id: hoveredId }, { hover: true });
+
+    const p = e.features[0].properties;
+    const huc4 = p.huc4 || (p.huc12 ? p.huc12.slice(0, 4) : null);
+    highlightLegendFromMap(huc4);
   });
 
   map.on("mouseleave", "huc12-fill", () => {
@@ -607,6 +715,7 @@ function setupInteractions() {
       map.setFeatureState({ source: "huc12", sourceLayer: "huc12", id: hoveredId }, { hover: false });
       hoveredId = null;
     }
+    highlightLegendFromMap(null);
   });
 
   map.on("click", "huc12-fill", (e) => {
