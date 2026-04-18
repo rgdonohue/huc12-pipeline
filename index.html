@@ -227,6 +227,54 @@
     }
     .dl-static:hover { background: rgba(30,50,70,0.9); color: #c8dff0; border-color: #2a4a6a; }
     .dl-size { color: #444; font-size: 9px; margin-left: 6px; }
+
+    /* ---- Mobile (≤600px) ---- */
+    .mobile-fab { display: none; }
+
+    @media (max-width: 600px) {
+      header { padding: 7px 10px; gap: 8px; flex-wrap: wrap; }
+      header h1 { font-size: 14px; }
+      header .sub { display: none; }
+      .header-divider { display: none; }
+
+      #legend {
+        left: 8px; bottom: 58px; width: 210px;
+        max-height: min(52vh, calc(100% - 125px));
+        display: none;
+      }
+      #legend.mobile-open { display: block; }
+
+      #controls {
+        top: auto; right: 8px; bottom: 58px; min-width: 0;
+        display: none;
+      }
+      #controls.mobile-open { display: flex; }
+
+      #hint-toast { bottom: 64px; font-size: 10px; padding: 6px 14px; }
+
+      .legend-item  { min-height: 36px; }
+      .legend-group { min-height: 34px; }
+      .ctrl-toggle  { min-height: 40px; }
+      .ctrl-action  { min-height: 40px; }
+      .state-pill   { min-height: 30px; display: inline-flex; align-items: center; }
+
+      .maplibregl-popup-content { max-width: min(250px, 88vw) !important; }
+
+      .mobile-fab {
+        display: flex; align-items: center; justify-content: center;
+        position: absolute; z-index: 6; width: 40px; height: 40px;
+        background: rgba(15,15,15,0.94); border: 1px solid #2a2a2a;
+        border-radius: 4px; color: #aaa; font-size: 17px;
+        cursor: pointer; backdrop-filter: blur(4px);
+        transition: all 0.15s; -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+      .mobile-fab.active {
+        background: rgba(20,38,58,0.92); border-color: #3a6a9a; color: #8BBFDF;
+      }
+      #legend-toggle  { bottom: 10px; left:  12px; }
+      #layers-toggle  { bottom: 10px; right: 12px; }
+    }
   </style>
 </head>
 <body>
@@ -298,6 +346,9 @@
   </div>
 
   <div id="hint-toast">Click any subwatershed to explore it</div>
+
+  <button id="legend-toggle" class="mobile-fab" onclick="toggleMobileLegend()" title="Map guide" aria-label="Toggle legend">≡</button>
+  <button id="layers-toggle" class="mobile-fab" onclick="toggleMobileControls()" title="Layers" aria-label="Toggle layers">⊞</button>
 </div>
 
 <script>
@@ -599,8 +650,11 @@ map.on("load", async () => {
     const pt = new pmtiles.PMTiles(CONFIG.pmtilesPath);
     const h  = await pt.getHeader();
     if (h && h.minLon != null) {
+      const mobile = window.innerWidth <= 600;
       map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], {
-        padding: { top: 135, bottom: 55, left: 260, right: 220 },
+        padding: mobile
+          ? { top: 80, bottom: 70, left: 20, right: 20 }
+          : { top: 135, bottom: 55, left: 260, right: 220 },
         duration: 0,
       });
     }
@@ -788,6 +842,25 @@ function toggleLayer(group) {
   layerGroups[group]?.forEach(id => {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Mobile panel toggles
+// ---------------------------------------------------------------------------
+function toggleMobileLegend() {
+  const el  = document.getElementById("legend");
+  const btn = document.getElementById("legend-toggle");
+  const open = el.classList.toggle("mobile-open");
+  btn.classList.toggle("active", open);
+  btn.textContent = open ? "✕" : "≡";
+}
+
+function toggleMobileControls() {
+  const el  = document.getElementById("controls");
+  const btn = document.getElementById("layers-toggle");
+  const open = el.classList.toggle("mobile-open");
+  btn.classList.toggle("active", open);
+  btn.textContent = open ? "✕" : "⊞";
 }
 
 // ---------------------------------------------------------------------------
