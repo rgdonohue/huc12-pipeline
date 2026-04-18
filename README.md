@@ -4,6 +4,8 @@ A per-state pipeline that fetches USGS HUC-12 subwatershed boundaries and
 produces publication-quality static maps and a fast interactive web map.
 One command → GeoJSON, GeoParquet, GeoPackage, CSV, PMTiles, PNG, and PDF.
 
+![example output map of new mexico](map.png)
+
 ## Gallery
 
 | New Mexico | Colorado |
