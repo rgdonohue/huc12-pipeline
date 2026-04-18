@@ -157,19 +157,30 @@
       z-index: 5; min-width: 160px;
     }
 
-    /* Toggle buttons: view state (on/off) */
+    /* Toggle buttons: view state (on/off) — same border-radius as state pills */
     .ctrl-toggle {
       background: rgba(18,18,18,0.92); border: 1px solid #2a2a2a;
-      border-left: 3px solid transparent;
-      border-radius: 5px; color: #555; font-size: 11px;
-      padding: 6px 10px 6px 9px; cursor: pointer; backdrop-filter: blur(4px);
-      transition: all 0.15s; white-space: nowrap; text-align: left;
-      display: flex; align-items: center; gap: 7px;
+      border-radius: 3px; color: #555; font-size: 11px;
+      padding: 6px 10px; cursor: pointer; backdrop-filter: blur(4px);
+      transition: all 0.15s; white-space: nowrap;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
     }
-    .ctrl-toggle:hover { color: #aaa; border-left-color: #444; }
-    .ctrl-toggle.active { border-left-color: #4E79A7; color: #c8dff0; }
-    .ctrl-toggle .dot { font-size: 8px; flex-shrink: 0; color: #333; transition: color 0.15s; }
-    .ctrl-toggle.active .dot { color: #8BBFDF; }
+    .ctrl-toggle:hover { color: #aaa; border-color: #3a3a3a; }
+    .ctrl-toggle.active { color: #c8dff0; border-color: #2a4a6a; background: rgba(20,38,58,0.88); }
+
+    /* Rectangular toggle track — not oval, matches button corner radius */
+    .toggle-track {
+      width: 26px; height: 13px; flex-shrink: 0;
+      border-radius: 3px; border: 1px solid #333;
+      background: #111; position: relative; transition: all 0.2s;
+    }
+    .toggle-thumb {
+      position: absolute; top: 1px; left: 1px;
+      width: 9px; height: 9px; border-radius: 2px;
+      background: #2a2a2a; transition: left 0.2s, background 0.2s;
+    }
+    .ctrl-toggle.active .toggle-track { background: #1a3a5a; border-color: #3a6a9a; }
+    .ctrl-toggle.active .toggle-thumb { left: 14px; background: #8BBFDF; }
 
     .ctrl-divider { height: 1px; background: #1e1e1e; margin: 2px 0; }
 
@@ -244,10 +255,10 @@
 
   <div id="controls">
     <button class="ctrl-toggle active" id="btn-fill" onclick="toggleLayer('fill')">
-      <span class="dot">●</span>Fill
+      Fill<span class="toggle-track"><span class="toggle-thumb"></span></span>
     </button>
     <button class="ctrl-toggle active" id="btn-huc8" onclick="toggleLayer('huc8')">
-      <span class="dot">●</span>HUC-8 outlines
+      HUC-8 outlines<span class="toggle-track"><span class="toggle-thumb"></span></span>
     </button>
     <div class="ctrl-divider"></div>
     <button class="ctrl-action" id="btn-download" onclick="toggleDownloadSection()">↓ Download data</button>
