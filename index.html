@@ -24,24 +24,22 @@
     /* ---- Header ---- */
     header {
       background: #111;
-      padding: 10px 16px;
+      padding: 9px 16px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       border-bottom: 1px solid #2a2a2a;
       flex-shrink: 0;
       z-index: 10;
     }
-    header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; color: #e8e4df; }
-    header .sub { font-size: 12px; color: #888; margin-left: auto; }
-    #state-badge {
-      background: #2a4a6a; color: #8BBFDF;
-      font-size: 11px; font-weight: 700;
-      padding: 2px 8px; border-radius: 3px; letter-spacing: 0.08em;
-    }
-    #state-switcher { display: flex; gap: 4px; margin-left: 8px; }
+    header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.02em; color: #e8e4df; }
+    .header-divider { width: 1px; height: 18px; background: #2a2a2a; flex-shrink: 0; }
+    .header-state-label { font-size: 10px; color: #555; letter-spacing: 0.06em; text-transform: uppercase; }
+    header .sub { font-size: 11px; color: #555; margin-left: auto; white-space: nowrap; }
+
+    #state-switcher { display: flex; align-items: center; gap: 6px; }
     .state-pill {
-      font-size: 11px; font-weight: 600; padding: 2px 9px;
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
       border-radius: 3px; border: 1px solid #333;
       color: #666; text-decoration: none; letter-spacing: 0.06em;
       transition: all 0.15s;
@@ -55,51 +53,96 @@
     /* ---- Legend ---- */
     #legend {
       position: absolute; bottom: 32px; left: 12px;
-      background: rgba(20,20,20,0.92); border: 1px solid #333;
-      border-radius: 6px; padding: 10px 12px; font-size: 11px;
-      max-width: 220px; z-index: 5; backdrop-filter: blur(4px);
+      background: rgba(15,15,15,0.94); border: 1px solid #2a2a2a;
+      border-radius: 7px; padding: 12px 13px; font-size: 11px;
+      width: 210px; z-index: 5; backdrop-filter: blur(6px);
       max-height: calc(100vh - 120px);
       overflow-y: auto;
     }
     #legend::-webkit-scrollbar { width: 4px; }
     #legend::-webkit-scrollbar-track { background: transparent; }
-    #legend::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+    #legend::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
     #legend h3 {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; color: #aaa; margin-bottom: 8px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: #666; margin-bottom: 9px;
     }
-    .legend-item { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; color: #ccc; }
-    .legend-swatch {
-      width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0;
-      border: 1px solid rgba(255,255,255,0.15);
-    }
-    .legend-line { width: 22px; height: 2px; flex-shrink: 0; }
 
+    /* Hierarchy guide */
+    .legend-hierarchy {
+      margin-bottom: 11px; padding-bottom: 10px;
+      border-bottom: 1px solid #222;
+    }
+    .legend-h-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 5px; color: #aaa; font-size: 10px;
+    }
+    .legend-h-row:last-child { margin-bottom: 0; }
+    .h-poly { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0;
+      background: #3a5a3a; border: 1px solid rgba(255,255,255,0.1); }
+    .h-line { width: 20px; height: 2px; flex-shrink: 0; background: #aaa; }
+    .h-palette {
+      width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0;
+      background: linear-gradient(135deg, #4E79A7 33%, #F28E2B 33% 66%, #59A14F 66%);
+    }
+    .legend-h-label { line-height: 1.3; }
+    .legend-h-label strong { color: #ddd; font-weight: 600; display: block; font-size: 10px; }
+    .legend-h-label span { color: #555; font-size: 9px; }
+
+    /* HUC-2 group headers in legend */
+    .legend-group {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #555;
+      margin: 10px 0 5px;
+      padding-top: 8px; border-top: 1px solid #1e1e1e;
+    }
+    .legend-group:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+
+    .legend-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 5px; }
+    .legend-swatch {
+      width: 13px; height: 13px; border-radius: 2px; flex-shrink: 0; margin-top: 1px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .legend-name { color: #ccc; font-size: 11px; line-height: 1.3; }
+    .legend-code { color: #444; font-size: 9px; display: block; }
+    .legend-line { width: 22px; height: 2px; flex-shrink: 0; margin-top: 5px; }
+    .legend-huc8-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid #222;
+      color: #777; font-size: 10px;
+    }
+
+    /* ---- Hint toast ---- */
+    #hint-toast {
+      position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,15,15,0.9); border: 1px solid #3a3a3a;
+      border-radius: 20px; padding: 7px 18px;
+      font-size: 11px; color: #888; z-index: 20;
+      white-space: nowrap; pointer-events: none;
+      transition: opacity 0.7s;
+    }
+    #hint-toast.fade-out { opacity: 0; }
 
     /* ---- Popup ---- */
     .maplibregl-popup-content {
-      background: #1a1a1a; color: #e8e4df;
-      border: 1px solid #333; border-radius: 6px;
-      padding: 10px 13px; font-size: 12px; max-width: 240px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      background: #141414; color: #e8e4df;
+      border: 1px solid #2a2a2a; border-radius: 7px;
+      padding: 11px 14px; font-size: 12px; max-width: 250px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.6);
     }
-    .maplibregl-popup-tip { border-top-color: #1a1a1a !important; }
+    .maplibregl-popup-tip { border-top-color: #141414 !important; }
     .maplibregl-popup-close-button {
-      color: #666; font-size: 18px; line-height: 1;
+      color: #555; font-size: 18px; line-height: 1;
       padding: 4px 8px; background: transparent; border: none;
     }
     .maplibregl-popup-close-button:hover { color: #e8e4df; background: transparent; }
 
-    .popup-title {
-      font-weight: 700; font-size: 13px; margin-bottom: 6px;
-      color: #e8e4df; padding-right: 16px;
-    }
-    .popup-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 3px; }
-    .popup-label { color: #888; }
-    .popup-value { color: #c8dff0; font-weight: 500; }
-    .popup-divider { height: 1px; background: #2a2a2a; margin: 8px 0 7px; }
+    .popup-title { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #e8e4df; padding-right: 18px; }
+    .popup-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+    .popup-label { color: #666; font-size: 11px; }
+    .popup-value { color: #c8dff0; font-weight: 500; font-size: 11px; text-align: right; }
+    .popup-divider { height: 1px; background: #222; margin: 8px 0 7px; }
     .popup-dl-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .popup-dl-label { color: #666; font-size: 10px; }
+    .popup-dl-label { color: #555; font-size: 10px; }
     .popup-dl-link {
       color: #8BBFDF; font-size: 10px; text-decoration: none;
       padding: 2px 7px; border: 1px solid #2a4a6a; border-radius: 3px;
@@ -110,80 +153,118 @@
     /* ---- Controls ---- */
     #controls {
       position: absolute; top: 12px; right: 12px;
-      display: flex; flex-direction: column; gap: 6px;
-      z-index: 5; max-height: calc(100vh - 100px); overflow-y: auto;
+      display: flex; flex-direction: column; gap: 5px;
+      z-index: 5; min-width: 160px;
     }
-    .ctrl-btn {
-      background: rgba(20,20,20,0.92); border: 1px solid #333;
-      border-radius: 5px; color: #ccc; font-size: 11px;
-      padding: 6px 10px; cursor: pointer; backdrop-filter: blur(4px);
-      transition: background 0.15s; white-space: nowrap; text-align: left;
+
+    /* Toggle buttons: view state (on/off) */
+    .ctrl-toggle {
+      background: rgba(18,18,18,0.92); border: 1px solid #2a2a2a;
+      border-left: 3px solid transparent;
+      border-radius: 5px; color: #555; font-size: 11px;
+      padding: 6px 10px 6px 9px; cursor: pointer; backdrop-filter: blur(4px);
+      transition: all 0.15s; white-space: nowrap; text-align: left;
+      display: flex; align-items: center; gap: 7px;
     }
-    .ctrl-btn:hover { background: rgba(40,40,40,0.95); color: #fff; }
-    .ctrl-btn.active { background: #2a4a6a; color: #8BBFDF; border-color: #3a6a9a; }
+    .ctrl-toggle:hover { color: #aaa; border-left-color: #444; }
+    .ctrl-toggle.active { border-left-color: #4E79A7; color: #c8dff0; }
+    .ctrl-toggle .dot { font-size: 8px; flex-shrink: 0; color: #333; transition: color 0.15s; }
+    .ctrl-toggle.active .dot { color: #8BBFDF; }
+
+    .ctrl-divider { height: 1px; background: #1e1e1e; margin: 2px 0; }
+
+    /* Action button: triggers a disclosure/modal (Download) */
+    .ctrl-action {
+      background: rgba(30,50,70,0.85); border: 1px solid #2a4a6a;
+      border-radius: 5px; color: #7AABCF; font-size: 11px;
+      padding: 7px 12px; cursor: pointer; backdrop-filter: blur(4px);
+      transition: all 0.15s; white-space: nowrap; text-align: center;
+    }
+    .ctrl-action:hover { background: rgba(42,74,106,0.95); color: #c8dff0; }
+    .ctrl-action.active { background: #2a4a6a; color: #8BBFDF; }
 
     /* ---- Download section ---- */
-    .ctrl-divider { height: 1px; background: #2a2a2a; margin: 2px 0; }
     #download-section { display: none; flex-direction: column; gap: 4px; }
     #download-section.open { display: flex; }
-    .dl-static-list { display: flex; flex-direction: column; gap: 4px; }
     .dl-static {
       display: flex; justify-content: space-between; align-items: center;
-      background: rgba(20,20,20,0.92); border: 1px solid #2a2a2a;
-      border-radius: 4px; color: #8BBFDF; font-size: 10px;
+      background: rgba(15,15,15,0.92); border: 1px solid #1e1e1e;
+      border-radius: 4px; color: #7AABCF; font-size: 10px;
       padding: 6px 10px; text-decoration: none; transition: all 0.15s;
     }
-    .dl-static:hover { background: rgba(40,40,40,0.95); color: #c8dff0; border-color: #3a6a9a; }
-    .dl-static.unavailable { opacity: 0.35; pointer-events: none; }
-    .dl-size { color: #555; font-size: 9px; margin-left: 8px; }
-
+    .dl-static:hover { background: rgba(30,50,70,0.9); color: #c8dff0; border-color: #2a4a6a; }
+    .dl-size { color: #444; font-size: 9px; margin-left: 6px; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>HUC-12 Watershed Basin Map</h1>
-  <span id="state-badge">—</span>
+  <h1>HUC-12 Watershed Map</h1>
+  <div class="header-divider"></div>
   <nav id="state-switcher">
+    <span class="header-state-label">State</span>
     <a class="state-pill" href="?state=nm" data-state="nm">NM</a>
     <a class="state-pill" href="?state=co" data-state="co">CO</a>
   </nav>
-  <span class="sub">USGS Watershed Boundary Dataset · <span id="feature-count">—</span> subwatersheds</span>
+  <span class="sub">USGS WBD &nbsp;·&nbsp; <span id="feature-count">—</span> subwatersheds</span>
 </header>
 
 <div id="map">
   <div id="legend">
-    <h3>HUC-4 Subregion</h3>
-    <p id="legend-desc" style="font-size:10px;color:#666;margin-bottom:7px;line-height:1.4;">
-      Each polygon is one HUC-12 subwatershed,<br>colored by its HUC-4 subregion.
-    </p>
+    <h3>Map Guide</h3>
+    <div class="legend-hierarchy">
+      <div class="legend-h-row">
+        <div class="h-poly"></div>
+        <div class="legend-h-label">
+          <strong>HUC-12</strong>
+          <span>each polygon = one subwatershed</span>
+        </div>
+      </div>
+      <div class="legend-h-row">
+        <div class="h-line"></div>
+        <div class="legend-h-label">
+          <strong>HUC-8</strong>
+          <span>thick line = basin boundary</span>
+        </div>
+      </div>
+      <div class="legend-h-row">
+        <div class="h-palette"></div>
+        <div class="legend-h-label">
+          <strong>HUC-4</strong>
+          <span>color = subregion family</span>
+        </div>
+      </div>
+    </div>
     <div id="legend-items"></div>
-    <div class="legend-item" style="margin-top:10px; padding-top:8px; border-top:1px solid #2a2a2a;">
-      <div class="legend-line" style="background:#cccccc; height:2px;"></div>
+    <div class="legend-huc8-row">
+      <div class="legend-line" style="background:#aaa; margin-top:0;"></div>
       <span>HUC-8 basin boundary</span>
     </div>
   </div>
 
   <div id="controls">
-    <button class="ctrl-btn active" id="btn-fill" onclick="toggleLayer('fill')">&#9679; Fill</button>
-    <button class="ctrl-btn active" id="btn-huc8" onclick="toggleLayer('huc8')">&#9679; HUC-8 outlines</button>
+    <button class="ctrl-toggle active" id="btn-fill" onclick="toggleLayer('fill')">
+      <span class="dot">●</span>Fill
+    </button>
+    <button class="ctrl-toggle active" id="btn-huc8" onclick="toggleLayer('huc8')">
+      <span class="dot">●</span>HUC-8 outlines
+    </button>
     <div class="ctrl-divider"></div>
-    <button class="ctrl-btn" id="btn-download" onclick="toggleDownloadSection()">&#8595; Download</button>
+    <button class="ctrl-action" id="btn-download" onclick="toggleDownloadSection()">↓ Download data</button>
     <div id="download-section">
-      <div class="dl-static-list">
-        <a class="dl-static" id="dl-geojson" href="#" download>
-          GeoJSON <span class="dl-size" id="sz-geojson"></span>
-        </a>
-        <a class="dl-static" id="dl-gpkg" href="#" download>
-          GeoPackage <span class="dl-size" id="sz-gpkg"></span>
-        </a>
-        <a class="dl-static" id="dl-csv" href="#" download>
-          CSV (attributes) <span class="dl-size" id="sz-csv"></span>
-        </a>
-      </div>
+      <a class="dl-static" id="dl-geojson" href="#">
+        GeoJSON <span class="dl-size" id="sz-geojson"></span>
+      </a>
+      <a class="dl-static" id="dl-gpkg" href="#">
+        GeoPackage <span class="dl-size" id="sz-gpkg"></span>
+      </a>
+      <a class="dl-static" id="dl-csv" href="#">
+        CSV (attributes) <span class="dl-size" id="sz-csv"></span>
+      </a>
     </div>
   </div>
 
+  <div id="hint-toast">Click any subwatershed to explore it</div>
 </div>
 
 <script>
@@ -194,7 +275,6 @@ const STATES = { nm: "New Mexico", co: "Colorado" };
 const urlState  = new URLSearchParams(window.location.search).get("state")?.toLowerCase();
 const stateSlug = (urlState && STATES[urlState]) ? urlState : "nm";
 
-// Mark active state pill
 document.querySelectorAll(".state-pill").forEach(a => {
   if (a.dataset.state === stateSlug) a.classList.add("active");
 });
@@ -203,27 +283,75 @@ const CONFIG = {
   pmtilesPath:     `data/processed/huc12_${stateSlug}.pmtiles`,
   huc8PmtilesPath: `data/processed/huc8_${stateSlug}.pmtiles`,
   metaPath:        `data/processed/huc12_${stateSlug}_meta.json`,
-
-  // GitHub Releases hosts the heavy download artifacts (GeoJSON, GPKG, CSV).
-  // For fully local dev, change to "data/processed/"
   downloadBaseUrl: "https://github.com/rgdonohue/huc12-pipeline/releases/download/v0.1.0/",
 };
 
-// Per-state map defaults — center, initial zoom, min zoom, and pan/zoom bounds
 const STATE_MAP = {
   nm: { center: [-106.1, 34.5], zoom: 6.0, minZoom: 5.0, maxBounds: [[-112, 28], [-100, 40]] },
   co: { center: [-105.5, 39.0], zoom: 6.5, minZoom: 5.0, maxBounds: [[-112, 34], [ -99, 44]] },
 };
 const SM = STATE_MAP[stateSlug] || STATE_MAP.nm;
 
-// 20-color qualitative palette — enough for states with many HUC-4 subregions
-const PALETTE = [
-  "#4E79A7","#F28E2B","#E15759","#76B7B2","#59A14F",
-  "#EDC948","#B07AA1","#FF9DA7","#9C755F","#BAB0AC",
-  "#D3A5C0","#86BCB6",
-  "#1F77B4","#AECDE6","#2CA02C","#D62728",
-  "#9467BD","#8C564B","#E377C2","#7F7F7F",
-];
+// ---------------------------------------------------------------------------
+// HUC name lookup tables
+// ---------------------------------------------------------------------------
+const HUC2_NAMES = {
+  "10": "Missouri",
+  "11": "Arkansas–White–Red",
+  "12": "Texas–Gulf",
+  "13": "Rio Grande",
+  "14": "Upper Colorado",
+  "15": "Lower Colorado",
+};
+
+const HUC4_NAMES = {
+  // Missouri (10xx) — CO eastern slope
+  "1018": "South Platte",
+  "1019": "North Platte",
+  "1025": "Republican",
+  "1026": "Smoky Hill",
+  // Arkansas–White–Red (11xx)
+  "1102": "Upper Arkansas",
+  "1103": "Middle Arkansas",
+  "1104": "Canadian",
+  "1108": "Cimarron",
+  "1109": "Upper Cimarron",
+  "1110": "Lower Cimarron",
+  "1112": "Lower Arkansas",
+  // Texas–Gulf (12xx)
+  "1205": "Nueces",
+  "1208": "Rio Grande–Pecos",
+  // Rio Grande (13xx)
+  "1301": "Rio Grande Headwaters",
+  "1302": "Middle Rio Grande",
+  "1303": "Rio Grande–Elephant Butte",
+  "1304": "Closed Basins",
+  "1305": "Pecos",
+  "1306": "Rio Grande–Amistad",
+  "1307": "Lower Rio Grande",
+  // Upper Colorado (14xx)
+  "1401": "Upper Green",
+  "1402": "Lower Green",
+  "1403": "Upper Colorado",
+  "1404": "Colorado–Escalante",
+  "1405": "Gunnison",
+  "1406": "Colorado–Lake Powell",
+  "1408": "San Juan",
+  // Lower Colorado (15xx)
+  "1502": "Little Colorado",
+  "1504": "Bill Williams",
+  "1508": "Lower Gila",
+};
+
+// Color families per HUC-2 — avoids cross-basin collisions
+const HUC2_PALETTES = {
+  "10": ["#4472C4","#70A0D0","#2E5FA3","#9DC3E6","#5B9BD5"],    // blues   — Missouri
+  "11": ["#E8801A","#F4C262","#C55A11","#F4B183","#D08030"],    // oranges — Arkansas-White-Red
+  "12": ["#C0392B","#E8736A","#922B21","#F1948A"],              // reds    — Texas-Gulf
+  "13": ["#7B52A6","#B07AA1","#9467BD","#D3A5C0","#A78EBF","#6B3FA0","#C5A5CF"], // purples — Rio Grande
+  "14": ["#3A8A3A","#5DAD5D","#2D6E2D","#74C476","#4F9E4F","#A1D99B","#256125"], // greens  — Upper Colorado
+  "15": ["#1A8A8A","#45B8B8","#0E6E6E","#7ECFCF","#5ABABA"],    // teals   — Lower Colorado
+};
 
 // ---------------------------------------------------------------------------
 // Register PMTiles protocol
@@ -278,7 +406,6 @@ let popup         = null;
 // Load metadata + build map
 // ---------------------------------------------------------------------------
 map.on("load", async () => {
-  // Load lightweight meta JSON — gives us HUC-4 codes, counts, and bounds info
   let meta;
   try {
     const r = await fetch(CONFIG.metaPath);
@@ -291,17 +418,18 @@ map.on("load", async () => {
     return;
   }
 
-  // Build HUC-4 color map from metadata
-  meta.huc4_codes.forEach((code, i) => {
-    huc4ColorMap[code] = PALETTE[i % PALETTE.length];
+  // Build HUC-4 color map grouped by HUC-2 family to avoid cross-basin collisions
+  const huc2Counters = {};
+  meta.huc4_codes.forEach(code => {
+    const huc2 = code.slice(0, 2);
+    const family = HUC2_PALETTES[huc2] || ["#888888"];
+    const idx = huc2Counters[huc2] || 0;
+    huc4ColorMap[code] = family[idx % family.length];
+    huc2Counters[huc2] = idx + 1;
   });
 
-  // Update header
-  document.getElementById("state-badge").textContent  = meta.state;
   document.getElementById("feature-count").textContent = meta.huc12_count.toLocaleString();
 
-  // Add PMTiles vector sources
-  // promoteId uses the huc12 attribute as a stable feature ID (required for setFeatureState)
   map.addSource("huc12", {
     type: "vector",
     url: `pmtiles://${CONFIG.pmtilesPath}`,
@@ -313,12 +441,10 @@ map.on("load", async () => {
     url: `pmtiles://${CONFIG.huc8PmtilesPath}`,
   });
 
-  // Match expression: fill by HUC-4 attribute in the vector tile
   const matchExpr = ["match", ["slice", ["get", "huc4"], 0, 4]];
   meta.huc4_codes.forEach(code => matchExpr.push(code, huc4ColorMap[code]));
-  matchExpr.push("#888888"); // fallback
+  matchExpr.push("#666666");
 
-  // HUC-12 fill
   map.addLayer({
     id: "huc12-fill",
     type: "fill",
@@ -326,11 +452,10 @@ map.on("load", async () => {
     "source-layer": "huc12",
     paint: {
       "fill-color": matchExpr,
-      "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.80, 0.55],
+      "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.82, 0.58],
     },
   });
 
-  // HUC-12 fine boundary
   map.addLayer({
     id: "huc12-line",
     type: "line",
@@ -339,11 +464,10 @@ map.on("load", async () => {
     paint: {
       "line-color": "#ffffff",
       "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.2, 9, 0.7],
-      "line-opacity": 0.4,
+      "line-opacity": 0.35,
     },
   });
 
-  // HUC-8 dissolved boundary overlay
   map.addLayer({
     id: "huc8-line",
     type: "line",
@@ -351,8 +475,8 @@ map.on("load", async () => {
     "source-layer": "huc8",
     paint: {
       "line-color": "#cccccc",
-      "line-width": ["interpolate", ["linear"], ["zoom"], 5, 1.2, 9, 2.0],
-      "line-opacity": 0.7,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 5, 1.2, 9, 2.2],
+      "line-opacity": 0.65,
     },
   });
 
@@ -360,7 +484,7 @@ map.on("load", async () => {
   setupDownloadLinks(meta);
   setupInteractions();
 
-  // Fit to data extent via PMTiles metadata
+  // Fit to data extent via PMTiles header metadata
   try {
     const pt = await protocol.get(new pmtiles.PMTiles(CONFIG.pmtilesPath));
     const h = pt.getHeader ? await pt.getHeader() : null;
@@ -370,24 +494,53 @@ map.on("load", async () => {
         duration: 0,
       });
     }
-  } catch (_) {
-    // fitBounds fails gracefully — map stays at default center/zoom
+  } catch (_) { /* stays at default center/zoom */ }
+
+  // First-load hint toast — auto-dismisses after 4.5s or on first click
+  const hintEl = document.getElementById("hint-toast");
+  if (hintEl) {
+    const dismiss = () => {
+      hintEl.classList.add("fade-out");
+      setTimeout(() => hintEl.remove(), 800);
+    };
+    setTimeout(dismiss, 4500);
+    map.once("click", "huc12-fill", dismiss);
   }
 });
 
 // ---------------------------------------------------------------------------
-// Legend
+// Legend — grouped by HUC-2 basin family
 // ---------------------------------------------------------------------------
 function buildLegend(huc4Codes) {
   const container = document.getElementById("legend-items");
-  huc4Codes.forEach(code => {
-    const div = document.createElement("div");
-    div.className = "legend-item";
-    div.innerHTML = `
-      <div class="legend-swatch" style="background:${huc4ColorMap[code]};"></div>
-      <span>HUC-4 ${code}</span>`;
-    container.appendChild(div);
-  });
+
+  // Group codes by HUC-2 prefix
+  const groups = {};
+  for (const code of huc4Codes) {
+    const huc2 = code.slice(0, 2);
+    if (!groups[huc2]) groups[huc2] = [];
+    groups[huc2].push(code);
+  }
+
+  for (const huc2 of Object.keys(groups).sort()) {
+    const header = document.createElement("div");
+    header.className = "legend-group";
+    header.textContent = HUC2_NAMES[huc2] || `HUC-2 ${huc2}`;
+    container.appendChild(header);
+
+    for (const code of groups[huc2]) {
+      const name = HUC4_NAMES[code];
+      const div = document.createElement("div");
+      div.className = "legend-item";
+      div.innerHTML = `
+        <div class="legend-swatch" style="background:${huc4ColorMap[code]};"></div>
+        <div class="legend-name">
+          ${name || "Subregion"}
+          <span class="legend-code">${code}</span>
+        </div>`;
+      container.appendChild(div);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -403,15 +556,14 @@ function setupDownloadLinks(meta) {
     : `${(bytes / 1024).toFixed(0)} KB`;
 
   const links = [
-    { id: "dl-geojson", file: `huc12_${slug}.geojson`,      szId: "sz-geojson", key: "geojson" },
-    { id: "dl-gpkg",    file: `huc12_${slug}.gpkg`,          szId: "sz-gpkg",    key: "gpkg"    },
-    { id: "dl-csv",     file: `huc12_${slug}_summary.csv`,   szId: "sz-csv",     key: "csv"     },
+    { id: "dl-geojson", file: `huc12_${slug}.geojson`,    szId: "sz-geojson", key: "geojson" },
+    { id: "dl-gpkg",    file: `huc12_${slug}.gpkg`,        szId: "sz-gpkg",    key: "gpkg"    },
+    { id: "dl-csv",     file: `huc12_${slug}_summary.csv`, szId: "sz-csv",     key: "csv"     },
   ];
 
   links.forEach(({ id, file, szId, key }) => {
     const el = document.getElementById(id);
     el.href = `${base}${file}`;
-    el.removeAttribute("download"); // let browser follow redirect; download attr breaks cross-origin
     if (sizes[key]) document.getElementById(szId).textContent = fmt(sizes[key]);
   });
 }
@@ -432,36 +584,27 @@ function setupInteractions() {
   map.on("mousemove", "huc12-fill", (e) => {
     map.getCanvas().style.cursor = "pointer";
     if (hoveredId !== null) {
-      map.setFeatureState(
-        { source: "huc12", sourceLayer: "huc12", id: hoveredId },
-        { hover: false }
-      );
+      map.setFeatureState({ source: "huc12", sourceLayer: "huc12", id: hoveredId }, { hover: false });
     }
     hoveredId = e.features[0].id;
-    map.setFeatureState(
-      { source: "huc12", sourceLayer: "huc12", id: hoveredId },
-      { hover: true }
-    );
+    map.setFeatureState({ source: "huc12", sourceLayer: "huc12", id: hoveredId }, { hover: true });
   });
 
   map.on("mouseleave", "huc12-fill", () => {
     map.getCanvas().style.cursor = "";
     if (hoveredId !== null) {
-      map.setFeatureState(
-        { source: "huc12", sourceLayer: "huc12", id: hoveredId },
-        { hover: false }
-      );
+      map.setFeatureState({ source: "huc12", sourceLayer: "huc12", id: hoveredId }, { hover: false });
       hoveredId = null;
     }
   });
 
-  // Click: open popup
   map.on("click", "huc12-fill", (e) => {
-    const p      = e.features[0].properties;
-    const huc12  = p.huc12  || "—";
-    const name   = p.name   || "—";
-    const huc4   = p.huc4   || (huc12 !== "—" ? huc12.slice(0, 4) : "—");
-    const area   = p.area_sqmi != null ? `${Number(p.area_sqmi).toFixed(1)} sq mi` : "—";
+    const p     = e.features[0].properties;
+    const huc12 = p.huc12  || "—";
+    const name  = p.name   || "—";
+    const huc4  = p.huc4   || (huc12 !== "—" ? huc12.slice(0, 4) : "—");
+    const huc4Label = HUC4_NAMES[huc4] ? `${HUC4_NAMES[huc4]} (${huc4})` : huc4;
+    const area  = p.area_sqmi != null ? `${Number(p.area_sqmi).toFixed(1)} sq mi` : "—";
     const states = p.states || "—";
 
     if (popup) popup.remove();
@@ -475,7 +618,7 @@ function setupInteractions() {
         </div>
         <div class="popup-row">
           <span class="popup-label">HUC-4 subregion</span>
-          <span class="popup-value">${huc4}</span>
+          <span class="popup-value">${huc4Label}</span>
         </div>
         <div class="popup-row">
           <span class="popup-label">Area</span>
@@ -487,17 +630,16 @@ function setupInteractions() {
         </div>
         <div class="popup-divider"></div>
         <div class="popup-dl-row">
-          <span class="popup-dl-label">Full dataset:</span>
-          <a class="popup-dl-link" id="popup-dl-link" href="#"
+          <span class="popup-dl-label">Full state dataset:</span>
+          <a class="popup-dl-link" href="#"
             onclick="document.getElementById('btn-download').click();return false;">
-            &#8595; Download panel
+            ↓ Download
           </a>
         </div>
       `)
       .addTo(map);
   });
 
-  // Click on empty area: close popup
   map.on("click", (e) => {
     const features = map.queryRenderedFeatures(e.point, { layers: ["huc12-fill"] });
     if (!features.length && popup) { popup.remove(); popup = null; }
@@ -528,11 +670,11 @@ function showError(html) {
   const div = document.createElement("div");
   div.style.cssText = `
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    background:#1a1a1a; border:1px solid #555; border-radius:8px;
+    background:#141414; border:1px solid #555; border-radius:8px;
     padding:24px 28px; max-width:420px; text-align:center;
     font-size:13px; line-height:1.6; color:#e8e4df; z-index:100;
   `;
-  div.innerHTML = `<strong style="color:#E15759;">&#9888; Error</strong><br><br>${html}`;
+  div.innerHTML = `<strong style="color:#E15759;">⚠ Error</strong><br><br>${html}`;
   document.getElementById("map").appendChild(div);
 }
 </script>
