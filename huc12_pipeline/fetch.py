@@ -24,6 +24,11 @@ import requests
 WBD_BASE   = "https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer"
 OUT_FIELDS = "huc12,name,states,areasqkm,loaddate,shape_Length,shape_Area"
 
+# ~11 cm at the equator — orders of magnitude finer than HUC-12 boundary
+# uncertainty, so safe to round. Shrinks downloadable GeoJSON files
+# substantially vs. the 15-ish decimals Fiona writes by default.
+GEOJSON_COORD_PRECISION = 6
+
 LAYER = {
     "huc2":  1,
     "huc4":  2,
@@ -87,6 +92,43 @@ def _generate_pmtiles(
 # ---------------------------------------------------------------------------
 # Fetch
 # ---------------------------------------------------------------------------
+
+def fetch_huc8_names(state_abbr: str, page_size: int = 500, pause: float = 0.5) -> dict:
+    """
+    Fetch HUC-8 code→name mapping from WBD layer 4 for all HUC-8s that
+    intersect the given state. Used so the web map can show real basin
+    names (Rio Grande, Pecos, San Juan) instead of 8-digit codes.
+    """
+    url = f"{WBD_BASE}/{LAYER['huc8']}/query"
+    names: dict = {}
+    offset = 0
+    print(f"Fetching HUC-8 names for state={state_abbr} …")
+    while True:
+        params = {
+            "where":             f"states LIKE '%{state_abbr}%'",
+            "outFields":         "huc8,name",
+            "f":                 "json",
+            "resultOffset":      offset,
+            "resultRecordCount": page_size,
+            "returnGeometry":    "false",
+        }
+        resp = requests.get(url, params=params, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        feats = data.get("features", [])
+        for f in feats:
+            attrs = f.get("attributes", {})
+            code = attrs.get("huc8") or attrs.get("HUC8")
+            name = attrs.get("name") or attrs.get("Name")
+            if code:
+                names[code] = name or code
+        if not feats or not data.get("exceededTransferLimit", False):
+            break
+        offset += page_size
+        time.sleep(pause)
+    print(f"  {len(names)} HUC-8 names")
+    return names
+
 
 def fetch_huc_layer(
     layer_idx: int,
@@ -208,14 +250,15 @@ def process(gdf: gpd.GeoDataFrame, state_abbr: str) -> gpd.GeoDataFrame:
 # Save
 # ---------------------------------------------------------------------------
 
-def save(gdf: gpd.GeoDataFrame, state_abbr: str) -> None:
+def save(gdf: gpd.GeoDataFrame, state_abbr: str, huc8_names: dict | None = None) -> None:
     """Export all output formats: GeoJSON, Parquet, GPKG, CSV, HUC-8 dissolve, PMTiles, meta."""
     DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
     slug = state_abbr.lower()
+    huc8_names = huc8_names or {}
 
-    # GeoJSON
+    # GeoJSON (coordinate precision trimmed — see GEOJSON_COORD_PRECISION)
     geojson_path = DATA_PROCESSED / f"huc12_{slug}.geojson"
-    gdf.to_file(geojson_path, driver="GeoJSON")
+    gdf.to_file(geojson_path, driver="GeoJSON", COORDINATE_PRECISION=GEOJSON_COORD_PRECISION)
     size_mb = geojson_path.stat().st_size / 1_048_576
     print(f"  Saved GeoJSON  → {geojson_path}  ({size_mb:.1f} MB)")
 
@@ -229,11 +272,21 @@ def save(gdf: gpd.GeoDataFrame, state_abbr: str) -> None:
     gdf.drop(columns=["geometry"]).to_csv(csv_path, index=False)
     print(f"  Saved CSV      → {csv_path}")
 
-    # HUC-8 dissolved boundaries
+    # HUC-8 dissolved boundaries (attach name attribute if available)
     huc8_path = DATA_PROCESSED / f"huc8_{slug}.geojson"
     huc8 = gdf.dissolve(by="huc8").reset_index()[["huc8", "geometry"]]
-    huc8.to_file(huc8_path, driver="GeoJSON")
+    huc8["name"] = huc8["huc8"].map(lambda c: huc8_names.get(c, ""))
+    huc8.to_file(huc8_path, driver="GeoJSON", COORDINATE_PRECISION=GEOJSON_COORD_PRECISION)
     print(f"  Saved HUC-8    → {huc8_path}")
+
+    # Per-HUC-8 subset GeoJSONs — enables "download this basin" without
+    # lasso-select or client-side filtering of the full state file.
+    per_huc8_sizes: dict = {}
+    for huc8_code, group in gdf.groupby("huc8"):
+        subset_path = DATA_PROCESSED / f"huc12_{slug}_{huc8_code}.geojson"
+        group.to_file(subset_path, driver="GeoJSON", COORDINATE_PRECISION=GEOJSON_COORD_PRECISION)
+        per_huc8_sizes[huc8_code] = subset_path.stat().st_size
+    print(f"  Saved {len(per_huc8_sizes)} per-HUC-8 GeoJSONs in {DATA_PROCESSED}/")
 
     # GeoPackage
     gpkg_path = DATA_PROCESSED / f"huc12_{slug}.gpkg"
@@ -242,10 +295,13 @@ def save(gdf: gpd.GeoDataFrame, state_abbr: str) -> None:
     print(f"  Saved GPKG     → {gpkg_path}  ({size_mb:.1f} MB)")
 
     # Metadata JSON (used by web map for color building and download link sizes)
+    state_huc8_codes = sorted(gdf["huc8"].unique().tolist())
     meta = {
         "state":      slug.upper(),
         "huc2_codes": sorted(gdf["huc2"].unique().tolist()),
         "huc4_codes": sorted(gdf["huc4"].unique().tolist()),
+        "huc8_codes": state_huc8_codes,
+        "huc8_names": {c: huc8_names.get(c, "") for c in state_huc8_codes},
         "huc8_count": int(gdf["huc8"].nunique()),
         "huc12_count": int(len(gdf)),
         "area_sqmi":  round(float(gdf["area_sqmi"].sum()), 1),
@@ -254,6 +310,7 @@ def save(gdf: gpd.GeoDataFrame, state_abbr: str) -> None:
             "gpkg":    gpkg_path.stat().st_size,
             "csv":     csv_path.stat().st_size,
         },
+        "per_huc8_sizes": per_huc8_sizes,
     }
     meta_path = DATA_PROCESSED / f"huc12_{slug}_meta.json"
     meta_path.write_text(json.dumps(meta, indent=2))
@@ -282,9 +339,10 @@ def main():
     args = parser.parse_args()
     state = args.state.upper()
 
-    gdf_raw = fetch_huc_layer(LAYER["huc12"], state)
-    gdf     = process(gdf_raw, state)
-    save(gdf, state)
+    gdf_raw   = fetch_huc_layer(LAYER["huc12"], state)
+    gdf       = process(gdf_raw, state)
+    huc8_name = fetch_huc8_names(state)
+    save(gdf, state, huc8_names=huc8_name)
 
     print("\nDone. Next steps:")
     print(f"  python scripts/map_static.py --state {state}")

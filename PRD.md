@@ -28,9 +28,10 @@ The pipeline, given `--state XX`, produces:
 1. `data/processed/huc12_<xx>.geojson` — HUC-12 polygons in EPSG:4326 with full HUC hierarchy (huc2…huc12), area in sq mi, source state list.
 2. `data/processed/huc12_<xx>.parquet` — same content, GeoParquet for fast re-read.
 3. `data/processed/huc12_<xx>_summary.csv` — attribute table (no geometry).
-4. `data/processed/huc8_<xx>.geojson` — real HUC-8 dissolve for boundary overlays.
-5. `output/huc12_<xx>.png` and `.pdf` — publication-quality static map, colored by HUC-4 parent (so adjacent basins don't share fills), HUC-8 boundary overlay.
-6. `index.html` — MapLibre interactive map, auto-fit to data bounds, real HUC-8 overlay, working hover, click popups.
+4. `data/processed/huc8_<xx>.geojson` — real HUC-8 dissolve (with basin names) for boundary overlays.
+5. `data/processed/huc12_<xx>_<huc8>.geojson` — per-HUC-8 subsets, one file per HUC-8 basin in the state, so downstream users can grab a basin without client-side filtering.
+6. `output/huc12_<xx>.png` and `.pdf` — publication-quality static map, colored by HUC-4 parent (so adjacent basins don't share fills), HUC-8 boundary overlay.
+7. `index.html` — MapLibre interactive map, auto-fit to data bounds, real HUC-8 overlay, working hover, click popups, HUC-8 click-to-pin, per-HUC-8 download, optional `?projects=<url>` overlay for emphasizing externally-tracked HUC-12s (e.g. ongoing project sites).
 
 ---
 
@@ -63,3 +64,12 @@ v1 ships when:
 - **Q2.** Should `requirements.txt` move to `pyproject.toml` + uv/pdm? Cleaner but more setup.
 - **Q3.** Does the static map deserve a context layer (state borders, neighboring states) for v1, or is that scope creep?
 - **Q4.** Failure mode for invalid geometries: silent `make_valid()` (current), error out, or write a sidecar audit CSV (Codex's preference)?
+
+---
+
+## 7. Future / roadmap
+
+Explicitly *out of v1*, tracked here so they don't drift into the core.
+
+- **NHD hydrography extractor.** A separate CLI (e.g. `huc12-extract --huc8 <code>`) that pulls NHD Flowline + Waterbody for a requested HUC-8, for users who want streams and lakes in addition to the polygon. Complementary to this pipeline; not a replacement. Motivated by Luke's feedback that TNM is the current path for streams+lakes but is clunkier than necessary.
+- **Multi-HUC-12 free-form select + export.** A lasso/polygon AOI that lets a user draw and export an arbitrary subset. Per-HUC-8 pre-built subsets already cover the "I want a named basin" case at a fraction of the complexity; only revisit if named-basin subsets prove insufficient.

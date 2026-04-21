@@ -133,6 +133,40 @@
       color: #777; font-size: 10px;
     }
 
+    /* HUC-8 sub-rows nested under each HUC-4 item */
+    .legend-huc8-item {
+      display: flex; align-items: center; gap: 6px;
+      margin: 0 -4px 2px; padding: 2px 4px 2px 22px;
+      border-radius: 3px; cursor: pointer;
+      color: #888; font-size: 10px; line-height: 1.3;
+      transition: background 0.15s, color 0.15s;
+    }
+    .legend-huc8-item:hover { background: rgba(50,75,105,0.3); color: #ccc; }
+    .legend-huc8-item.pinned {
+      background: rgba(70,105,145,0.5); color: #c8dff0;
+      box-shadow: inset 2px 0 0 #8BBFDF;
+    }
+    .legend-huc8-item.cross-hover {
+      background: rgba(90,135,180,0.4); color: #e8e4df;
+      box-shadow: inset 2px 0 0 #c8dff0;
+    }
+    .legend-huc8-name { flex: 1; }
+    .legend-huc8-code { color: #555; font-size: 9px; margin-left: auto; font-variant-numeric: tabular-nums; }
+
+    /* Projects-overlay banner — shown when ?projects=... is loaded */
+    #projects-banner {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(34,26,8,0.94); border: 1px solid #7a5a1a;
+      color: #FFD24C; border-radius: 5px;
+      padding: 6px 12px; font-size: 11px; z-index: 6;
+      display: none; align-items: center; gap: 10px;
+      backdrop-filter: blur(6px);
+      max-width: calc(100% - 24px);
+    }
+    #projects-banner.active { display: inline-flex; }
+    #projects-banner strong { color: #FFE58F; font-weight: 600; }
+    #projects-banner a { color: #FFD24C; text-decoration: underline; }
+
     /* ---- Hint toast ---- */
     #hint-toast {
       position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%);
@@ -178,33 +212,6 @@
       display: flex; flex-direction: column; gap: 5px;
       z-index: 5; min-width: 160px;
     }
-
-    /* Toggle buttons: view state (on/off) — same border-radius as state pills */
-    .ctrl-toggle {
-      background: rgba(18,18,18,0.92); border: 1px solid #2a2a2a;
-      border-radius: 3px; color: #555; font-size: 11px;
-      padding: 6px 10px; cursor: pointer; backdrop-filter: blur(4px);
-      transition: all 0.15s; white-space: nowrap;
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    }
-    .ctrl-toggle:hover { color: #aaa; border-color: #3a3a3a; }
-    .ctrl-toggle.active { color: #c8dff0; border-color: #2a4a6a; background: rgba(20,38,58,0.88); }
-
-    /* Rectangular toggle track — not oval, matches button corner radius */
-    .toggle-track {
-      width: 26px; height: 13px; flex-shrink: 0;
-      border-radius: 3px; border: 1px solid #333;
-      background: #111; position: relative; transition: all 0.2s;
-    }
-    .toggle-thumb {
-      position: absolute; top: 1px; left: 1px;
-      width: 9px; height: 9px; border-radius: 2px;
-      background: #2a2a2a; transition: left 0.2s, background 0.2s;
-    }
-    .ctrl-toggle.active .toggle-track { background: #1a3a5a; border-color: #3a6a9a; }
-    .ctrl-toggle.active .toggle-thumb { left: 14px; background: #8BBFDF; }
-
-    .ctrl-divider { height: 1px; background: #1e1e1e; margin: 2px 0; }
 
     /* Action button: triggers a disclosure/modal (Download) */
     .ctrl-action {
@@ -254,7 +261,6 @@
 
       .legend-item  { min-height: 36px; }
       .legend-group { min-height: 34px; }
-      .ctrl-toggle  { min-height: 40px; }
       .ctrl-action  { min-height: 40px; }
       .state-pill   { min-height: 30px; display: inline-flex; align-items: center; }
 
@@ -324,15 +330,12 @@
   </div>
 
   <div id="controls">
-    <button class="ctrl-toggle active" id="btn-fill" onclick="toggleLayer('fill')">
-      Fill<span class="toggle-track"><span class="toggle-thumb"></span></span>
-    </button>
-    <button class="ctrl-toggle active" id="btn-huc8" onclick="toggleLayer('huc8')">
-      HUC-8 outlines<span class="toggle-track"><span class="toggle-thumb"></span></span>
-    </button>
-    <div class="ctrl-divider"></div>
     <button class="ctrl-action" id="btn-download" onclick="toggleDownloadSection()">↓ Download data</button>
     <div id="download-section">
+      <a class="dl-static" id="dl-huc8" href="#" style="display:none; border-color:#4a6a2a; color:#B8D47A;">
+        <span>Pinned HUC-8 <span id="dl-huc8-name" style="color:#7a9a4a; font-size:9px;"></span></span>
+        <span class="dl-size" id="sz-huc8"></span>
+      </a>
       <a class="dl-static" id="dl-geojson" href="#">
         GeoJSON <span class="dl-size" id="sz-geojson"></span>
       </a>
@@ -346,6 +349,11 @@
   </div>
 
   <div id="hint-toast">Click any subwatershed to explore it</div>
+
+  <div id="projects-banner">
+    Projects loaded: <strong id="projects-banner-name">—</strong>
+    <span id="projects-banner-count" style="color:#aa8a44;"></span>
+  </div>
 
   <button id="legend-toggle" class="mobile-fab" onclick="toggleMobileLegend()" title="Map guide" aria-label="Toggle legend">≡</button>
   <button id="layers-toggle" class="mobile-fab" onclick="toggleMobileControls()" title="Layers" aria-label="Toggle layers">⊞</button>
@@ -371,8 +379,8 @@ const CONFIG = {
 };
 
 const STATE_MAP = {
-  nm: { center: [-106.1, 34.5], zoom: 5.8, minZoom: 4.8, maxBounds: [[-112, 28], [-100, 40]] },
-  co: { center: [-105.5, 39.0], zoom: 5.8, minZoom: 4.8, maxBounds: [[-112, 34], [ -99, 44]] },
+  nm: { center: [-106.1, 34.5], zoom: 5.8, minZoom: 4.0, maxBounds: [[-114, 26], [ -98, 42]] },
+  co: { center: [-105.5, 39.0], zoom: 5.8, minZoom: 4.0, maxBounds: [[-114, 32], [ -97, 46]] },
 };
 const SM = STATE_MAP[stateSlug] || STATE_MAP.nm;
 
@@ -483,10 +491,12 @@ map.addControl(new maplibregl.AttributionControl({
 // State
 // ---------------------------------------------------------------------------
 let huc4ColorMap   = {};
-let activeToggles  = { fill: true, huc8: true };
+let huc8Names      = {};    // { huc8_code: basin_name } from meta.json
+let metaRef        = null;  // raw meta.json, kept for download-link switching
 let popup          = null;
-let hoverEmphasis  = null;  // { type: "huc4"|"huc2", code } — from legend hover
-let pinnedEmphasis = null;  // { type: "huc4"|"huc2", code } — from legend click
+let hoverEmphasis  = null;  // { type: "huc8"|"huc4"|"huc2", code } — from legend hover
+let pinnedEmphasis = null;  // { type: "huc8"|"huc4"|"huc2", code } — from legend click
+let projectsMap    = null;  // { huc12_code: { ...project } } — active overlay, or null
 
 // ---------------------------------------------------------------------------
 // Emphasis — dim non-matching, brighten matching HUC-4 or HUC-2 family
@@ -505,9 +515,8 @@ function applyEmphasis() {
     return;
   }
 
-  const matchTarget = active.type === "huc4"
-    ? ["slice", ["get", "huc12"], 0, 4]
-    : ["slice", ["get", "huc12"], 0, 2];
+  const sliceLen = active.type === "huc8" ? 8 : active.type === "huc4" ? 4 : 2;
+  const matchTarget = ["slice", ["get", "huc12"], 0, sliceLen];
 
   map.setPaintProperty("huc12-fill", "fill-opacity", [
     "case",
@@ -530,31 +539,51 @@ function togglePin(e) {
   const same = pinnedEmphasis
     && pinnedEmphasis.type === e.type
     && pinnedEmphasis.code === e.code;
-  pinnedEmphasis = same ? null : e;
-  document.querySelectorAll(".legend-item.pinned, .legend-group.pinned")
+  applyPin(same ? null : e);
+}
+
+// Idempotent set: used by map clicks, where clicking a cell inside the
+// already-pinned basin shouldn't silently unpin (user is just reading cells).
+function setPin(e) {
+  const same = pinnedEmphasis
+    && pinnedEmphasis.type === e.type
+    && pinnedEmphasis.code === e.code;
+  if (same) return;
+  applyPin(e);
+}
+
+function applyPin(e) {
+  pinnedEmphasis = e;
+  document.querySelectorAll(".legend-item.pinned, .legend-group.pinned, .legend-huc8-item.pinned")
     .forEach(el => el.classList.remove("pinned"));
   if (pinnedEmphasis) {
     const sel = pinnedEmphasis.type === "huc4"
       ? `.legend-item[data-huc4="${pinnedEmphasis.code}"]`
-      : `.legend-group[data-huc2="${pinnedEmphasis.code}"]`;
+      : pinnedEmphasis.type === "huc8"
+        ? `.legend-huc8-item[data-huc8="${pinnedEmphasis.code}"]`
+        : `.legend-group[data-huc2="${pinnedEmphasis.code}"]`;
     document.querySelector(sel)?.classList.add("pinned");
   }
   applyEmphasis();
+  updateHuc8DownloadLink();
 }
 
-// Cross-highlight: map polygon hover → legend row
-function highlightLegendFromMap(huc4) {
-  document.querySelectorAll(".legend-item.cross-hover")
+// Cross-highlight: map polygon hover → HUC-4 legend row + HUC-8 sub-row
+function highlightLegendFromMap(huc4, huc8) {
+  document.querySelectorAll(".legend-item.cross-hover, .legend-huc8-item.cross-hover")
     .forEach(el => el.classList.remove("cross-hover"));
   if (!huc4) return;
   const el = document.querySelector(`.legend-item[data-huc4="${huc4}"]`);
   if (!el) return;
   el.classList.add("cross-hover");
+  const h8El = huc8 ? document.querySelector(`.legend-huc8-item[data-huc8="${huc8}"]`) : null;
+  if (h8El) h8El.classList.add("cross-hover");
   const legend = document.getElementById("legend");
-  const eRect = el.getBoundingClientRect();
+  const target = h8El || el;
+  const eRect = target.getBoundingClientRect();
   const lRect = legend.getBoundingClientRect();
   if (eRect.top < lRect.top || eRect.bottom > lRect.bottom) {
-    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    target.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 }
 
@@ -636,9 +665,22 @@ map.on("load", async () => {
     },
   });
 
-  buildLegend(meta.huc4_codes);
+  // Invisible fill layer on the HUC-8 source so clicking inside a basin
+  // pins it the same as clicking the legend row. Opacity 0 still hit-tests.
+  map.addLayer({
+    id: "huc8-fill",
+    type: "fill",
+    source: "huc8",
+    "source-layer": "huc8",
+    paint: { "fill-color": "#000", "fill-opacity": 0 },
+  });
+
+  huc8Names = meta.huc8_names || {};
+  metaRef   = meta;
+  buildLegend(meta.huc4_codes, meta.huc8_codes || Object.keys(huc8Names));
   setupDownloadLinks(meta);
   setupInteractions();
+  setupProjectsOverlay();
 
   // Fit to data extent via PMTiles header metadata.
   // Padding values clear the UI chrome:
@@ -650,13 +692,20 @@ map.on("load", async () => {
     const pt = new pmtiles.PMTiles(CONFIG.pmtilesPath);
     const h  = await pt.getHeader();
     if (h && h.minLon != null) {
-      const mobile = window.innerWidth <= 600;
+      const vw = window.innerWidth;
+      const mobile = vw <= 600;
+      const narrow = !mobile && vw <= 1100;
       map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], {
         padding: mobile
-          ? { top: 80, bottom: 70, left: 20, right: 20 }
-          : { top: 135, bottom: 55, left: 260, right: 220 },
+          ? { top: 90, bottom: 80, left: 20, right: 20 }
+          : narrow
+            ? { top: 150, bottom: 70, left: 270, right: 230 }
+            : { top: 135, bottom: 55, left: 260, right: 220 },
         duration: 0,
       });
+      // Back off a touch so the state clears the chrome on narrower screens
+      // and leaves a little breathing room at first load.
+      map.setZoom(Math.max(map.getZoom() - 0.35, SM.minZoom));
     }
   } catch (err) {
     console.warn("fitBounds from PMTiles header failed; using default center/zoom:", err);
@@ -675,20 +724,28 @@ map.on("load", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Legend — grouped by HUC-2 basin family
+// Legend — grouped by HUC-2 basin family, with HUC-8 rows nested under HUC-4
 // ---------------------------------------------------------------------------
-function buildLegend(huc4Codes) {
+function buildLegend(huc4Codes, huc8Codes) {
   const container = document.getElementById("legend-items");
 
-  // Group codes by HUC-2 prefix
-  const groups = {};
+  // Group HUC-4 codes by HUC-2 prefix
+  const huc4ByHuc2 = {};
   for (const code of huc4Codes) {
     const huc2 = code.slice(0, 2);
-    if (!groups[huc2]) groups[huc2] = [];
-    groups[huc2].push(code);
+    if (!huc4ByHuc2[huc2]) huc4ByHuc2[huc2] = [];
+    huc4ByHuc2[huc2].push(code);
   }
 
-  for (const huc2 of Object.keys(groups).sort()) {
+  // Group HUC-8 codes by HUC-4 prefix
+  const huc8ByHuc4 = {};
+  for (const code of huc8Codes || []) {
+    const huc4 = code.slice(0, 4);
+    if (!huc8ByHuc4[huc4]) huc8ByHuc4[huc4] = [];
+    huc8ByHuc4[huc4].push(code);
+  }
+
+  for (const huc2 of Object.keys(huc4ByHuc2).sort()) {
     const header = document.createElement("div");
     header.className = "legend-group";
     header.textContent = HUC2_NAMES[huc2] || `HUC-2 ${huc2}`;
@@ -699,7 +756,7 @@ function buildLegend(huc4Codes) {
     header.addEventListener("click", () => togglePin({ type: "huc2", code: huc2 }));
     container.appendChild(header);
 
-    for (const code of groups[huc2]) {
+    for (const code of huc4ByHuc2[huc2]) {
       const name = HUC4_NAMES[code];
       const div = document.createElement("div");
       div.className = "legend-item";
@@ -715,6 +772,23 @@ function buildLegend(huc4Codes) {
       div.addEventListener("mouseleave", () => setHoverEmphasis(null));
       div.addEventListener("click", () => togglePin({ type: "huc4", code }));
       container.appendChild(div);
+
+      // HUC-8 sub-rows
+      const huc8List = (huc8ByHuc4[code] || []).sort();
+      for (const huc8 of huc8List) {
+        const h8Name = huc8Names[huc8] || `HUC-8 ${huc8}`;
+        const row = document.createElement("div");
+        row.className = "legend-huc8-item";
+        row.dataset.huc8 = huc8;
+        row.title = `Click to pin ${h8Name}`;
+        row.innerHTML = `
+          <span class="legend-huc8-name">${h8Name}</span>
+          <span class="legend-huc8-code">${huc8}</span>`;
+        row.addEventListener("mouseenter", () => setHoverEmphasis({ type: "huc8", code: huc8 }));
+        row.addEventListener("mouseleave", () => setHoverEmphasis(null));
+        row.addEventListener("click", () => togglePin({ type: "huc8", code: huc8 }));
+        container.appendChild(row);
+      }
     }
   }
 }
@@ -751,6 +825,36 @@ function toggleDownloadSection() {
   btn.classList.toggle("active", open);
 }
 
+// When a HUC-8 is pinned, surface a dedicated "download this basin" link
+// pointing at the pre-built per-HUC-8 GeoJSON. Hidden otherwise.
+function updateHuc8DownloadLink() {
+  const link  = document.getElementById("dl-huc8");
+  const label = document.getElementById("dl-huc8-name");
+  const sz    = document.getElementById("sz-huc8");
+  if (!link || !metaRef) return;
+
+  if (!pinnedEmphasis || pinnedEmphasis.type !== "huc8") {
+    link.style.display = "none";
+    return;
+  }
+
+  const code   = pinnedEmphasis.code;
+  const slug   = metaRef.state.toLowerCase();
+  const file   = `huc12_${slug}_${code}.geojson`;
+  const sizes  = metaRef.per_huc8_sizes || {};
+  const bytes  = sizes[code];
+  const fmt    = b => b > 1_048_576 ? `${(b/1_048_576).toFixed(1)} MB` : `${(b/1024).toFixed(0)} KB`;
+
+  link.href = `${CONFIG.downloadBaseUrl}${file}`;
+  label.textContent = huc8Names[code] ? `— ${huc8Names[code]}` : `— ${code}`;
+  sz.textContent    = bytes ? fmt(bytes) : "";
+  link.style.display = "flex";
+
+  // Auto-open the panel so the link is immediately visible
+  document.getElementById("download-section").classList.add("open");
+  document.getElementById("btn-download").classList.add("active");
+}
+
 // ---------------------------------------------------------------------------
 // Interactions: hover + click popup
 // ---------------------------------------------------------------------------
@@ -767,7 +871,8 @@ function setupInteractions() {
 
     const p = e.features[0].properties;
     const huc4 = p.huc4 || (p.huc12 ? p.huc12.slice(0, 4) : null);
-    highlightLegendFromMap(huc4);
+    const huc8 = p.huc8 || (p.huc12 ? p.huc12.slice(0, 8) : null);
+    highlightLegendFromMap(huc4, huc8);
   });
 
   map.on("mouseleave", "huc12-fill", () => {
@@ -776,7 +881,15 @@ function setupInteractions() {
       map.setFeatureState({ source: "huc12", sourceLayer: "huc12", id: hoveredId }, { hover: false });
       hoveredId = null;
     }
-    highlightLegendFromMap(null);
+    highlightLegendFromMap(null, null);
+  });
+
+  // HUC-8 click-to-pin from the map itself (any click inside a basin).
+  // Use setPin (idempotent) so clicking different cells in the same basin
+  // doesn't toggle the pin off — only pins to a different basin or pins fresh.
+  map.on("click", "huc8-fill", (e) => {
+    const code = e.features[0].properties?.huc8;
+    if (code) setPin({ type: "huc8", code });
   });
 
   map.on("click", "huc12-fill", (e) => {
@@ -784,9 +897,15 @@ function setupInteractions() {
     const huc12 = p.huc12  || "—";
     const name  = p.name   || "—";
     const huc4  = p.huc4   || (huc12 !== "—" ? huc12.slice(0, 4) : "—");
+    const huc8  = p.huc8   || (huc12 !== "—" ? huc12.slice(0, 8) : "—");
     const huc4Label = HUC4_NAMES[huc4] ? `${HUC4_NAMES[huc4]} (${huc4})` : huc4;
-    const area  = p.area_sqmi != null ? `${Number(p.area_sqmi).toFixed(1)} sq mi` : "—";
+    const huc8Name  = huc8Names[huc8] || "";
+    const huc8Label = huc8Name ? `${huc8Name} (${huc8})` : huc8;
+    const area   = p.area_sqmi != null ? `${Number(p.area_sqmi).toFixed(1)} sq mi` : "—";
     const states = p.states || "—";
+
+    const projectBlock = renderProjectPopupBlock(huc12);
+    const basinBlock   = renderBasinDownloadBlock(huc8, huc8Name);
 
     if (popup) popup.remove();
     popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
@@ -796,6 +915,10 @@ function setupInteractions() {
         <div class="popup-row">
           <span class="popup-label">HUC-12</span>
           <span class="popup-value">${huc12}</span>
+        </div>
+        <div class="popup-row">
+          <span class="popup-label">HUC-8 basin</span>
+          <span class="popup-value">${huc8Label}</span>
         </div>
         <div class="popup-row">
           <span class="popup-label">HUC-4 subregion</span>
@@ -809,14 +932,8 @@ function setupInteractions() {
           <span class="popup-label">States</span>
           <span class="popup-value">${states}</span>
         </div>
-        <div class="popup-divider"></div>
-        <div class="popup-dl-row">
-          <span class="popup-dl-label">Full state dataset:</span>
-          <a class="popup-dl-link" href="#"
-            onclick="document.getElementById('btn-download').click();return false;">
-            ↓ Download
-          </a>
-        </div>
+        ${projectBlock}
+        ${basinBlock}
       `)
       .addTo(map);
   });
@@ -828,20 +945,125 @@ function setupInteractions() {
 }
 
 // ---------------------------------------------------------------------------
-// Layer toggles
+// Projects overlay — ?projects=<json-url> loads a list of HUC-12s
+// representing external project sites to emphasize over the base map.
+// Expected JSON shape:
+//   { "name": "...", "projects": [ { "huc12": "...", "name": "...", ... }, ... ] }
 // ---------------------------------------------------------------------------
-const layerGroups = {
-  fill: ["huc12-fill", "huc12-line"],
-  huc8: ["huc8-line"],
-};
+async function setupProjectsOverlay() {
+  const url = new URLSearchParams(window.location.search).get("projects");
+  if (!url) return;
 
-function toggleLayer(group) {
-  activeToggles[group] = !activeToggles[group];
-  const visible = activeToggles[group] ? "visible" : "none";
-  document.getElementById(`btn-${group}`)?.classList.toggle("active", activeToggles[group]);
-  layerGroups[group]?.forEach(id => {
-    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible);
-  });
+  let payload;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    payload = await r.json();
+  } catch (err) {
+    console.warn(`Could not load projects JSON from ${url}:`, err);
+    return;
+  }
+
+  const projects = Array.isArray(payload) ? payload : (payload.projects || []);
+  if (!projects.length) return;
+
+  projectsMap = {};
+  for (const p of projects) {
+    if (p && p.huc12) projectsMap[String(p.huc12)] = p;
+  }
+  const codes = Object.keys(projectsMap);
+  if (!codes.length) return;
+
+  // Emphasis fill layer (placed above the base HUC-12 fill so project
+  // cells read as the dominant color).
+  map.addLayer({
+    id: "projects-fill",
+    type: "fill",
+    source: "huc12",
+    "source-layer": "huc12",
+    filter: ["in", ["get", "huc12"], ["literal", codes]],
+    paint: {
+      "fill-color": "#FFD24C",
+      "fill-opacity": 0.7,
+    },
+  }, "huc12-line");
+
+  map.addLayer({
+    id: "projects-outline",
+    type: "line",
+    source: "huc12",
+    "source-layer": "huc12",
+    filter: ["in", ["get", "huc12"], ["literal", codes]],
+    paint: {
+      "line-color": "#FFE58F",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 5, 1.2, 10, 2.4],
+      "line-opacity": 0.9,
+    },
+  }, "huc8-line");
+
+  const banner = document.getElementById("projects-banner");
+  const name   = payload.name || "External projects";
+  document.getElementById("projects-banner-name").textContent = name;
+  document.getElementById("projects-banner-count").textContent =
+    `· ${codes.length} HUC-12${codes.length === 1 ? "" : "s"}`;
+  banner.classList.add("active");
+}
+
+// Produce the HTML block shown inside the HUC-12 popup when the clicked
+// cell matches a loaded project. Returns empty string if no overlay or
+// no match.
+function renderProjectPopupBlock(huc12) {
+  if (!projectsMap) return "";
+  const proj = projectsMap[huc12];
+  if (!proj) return "";
+
+  const rows = [];
+  if (proj.name)        rows.push(["Project", proj.name]);
+  if (proj.status)      rows.push(["Status", proj.status]);
+  if (proj.description) rows.push(["Notes", proj.description]);
+
+  const rowsHtml = rows.map(([k, v]) =>
+    `<div class="popup-row"><span class="popup-label">${k}</span><span class="popup-value">${escapeHtml(String(v))}</span></div>`
+  ).join("");
+
+  const linkHtml = proj.url
+    ? `<div class="popup-dl-row" style="margin-top:6px;">
+         <a class="popup-dl-link" href="${escapeHtml(proj.url)}" target="_blank" rel="noopener">Project link ↗</a>
+       </div>`
+    : "";
+
+  return `<div class="popup-divider"></div>
+    <div class="popup-row"><span class="popup-label" style="color:#FFD24C;">Project site</span><span></span></div>
+    ${rowsHtml}${linkHtml}`;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+// Popup-local basin download CTA. Links directly at the per-HUC-8 GeoJSON
+// for the basin containing the clicked cell — the scale the user is
+// actually looking at. State-wide downloads remain one click away in the
+// corner panel.
+function renderBasinDownloadBlock(huc8, huc8Name) {
+  if (!metaRef || !huc8 || huc8 === "—") return "";
+  const slug  = metaRef.state.toLowerCase();
+  const file  = `huc12_${slug}_${huc8}.geojson`;
+  const url   = `${CONFIG.downloadBaseUrl}${file}`;
+  const sizes = metaRef.per_huc8_sizes || {};
+  const bytes = sizes[huc8];
+  const sizeStr = bytes
+    ? (bytes > 1_048_576 ? `${(bytes/1_048_576).toFixed(1)} MB` : `${(bytes/1024).toFixed(0)} KB`)
+    : "";
+  const label = huc8Name || huc8;
+  return `
+    <div class="popup-divider"></div>
+    <div class="popup-dl-row">
+      <span class="popup-dl-label">${escapeHtml(label)} basin:</span>
+      <a class="popup-dl-link" href="${url}" download>↓ GeoJSON${sizeStr ? ` <span style="color:#555;">(${sizeStr})</span>` : ""}</a>
+    </div>`;
 }
 
 // ---------------------------------------------------------------------------

@@ -8,7 +8,18 @@ Per-state pipeline that turns a `--state XX` flag into a publication-quality
 HUC-12 map (static PNG/PDF + interactive MapLibre web).
 
 ## Current state
-**Two-state gallery complete (NM + CO, 2026-04-17). All Tier 1, 2, and 3 items done.**
+**HUC-8 interaction + projects overlay landed (2026-04-21). Baseline stays focused; collaborator feedback integrated.**
+
+Done (session 3 — collaborator feedback):
+- **HUC-8 names in data.** Fetches WBD layer 4 for the state during the main pipeline run; writes `huc8_names` and `huc8_codes` into `huc12_<xx>_meta.json`. Each HUC-8 dissolve polygon also carries its `name` attribute.
+- **Per-HUC-8 subset GeoJSONs.** `data/processed/huc12_<xx>_<huc8>.geojson` written for every HUC-8 in the state; sizes recorded in `meta.per_huc8_sizes`.
+- **HUC-8 legend tier.** Legend now shows HUC-8 sub-rows nested under each HUC-4 row, named ("Rio Grande-Santa Fe", "Upper Pecos", etc.). Click to pin like HUC-4.
+- **HUC-8 click-to-pin from the map.** Transparent `huc8-fill` layer above the HUC-8 source catches clicks; idempotent `setPin()` ensures clicking cells within the already-pinned basin doesn't silently unpin.
+- **Per-HUC-8 download link.** Download panel surfaces a "Pinned HUC-8" link (auto-opened) when a HUC-8 is pinned, pointing at the pre-built per-HUC-8 GeoJSON.
+- **Popup shows HUC-8 basin name.** Popup now includes a HUC-8 row alongside HUC-12 / HUC-4.
+- **Projects overlay (`?projects=<url>`).** Optional config-driven overlay: loads a JSON of `{ name, projects: [{ huc12, name, status, description, url }] }` and emphasizes matching HUC-12s with a gold fill + outline. Popup on those cells shows project metadata. Serves Garrett's "highlight sub-basins where we have ongoing projects" ask without a fork — same codebase, same deployment.
+
+Done (session 2 — PMTiles, packaging, gallery):
 
 Done (session 1 — core pipeline):
 - Layer index dict fixed (was off-by-one, fetched HUC-10 not HUC-12).
@@ -88,8 +99,9 @@ huc12-pipeline/
 │       ├── huc12_<xx>_summary.csv
 │       ├── huc12_<xx>_invalid.csv  # empty if all geometries valid
 │       ├── huc12_<xx>.pmtiles
-│       ├── huc12_<xx>_meta.json
-│       ├── huc8_<xx>.geojson
+│       ├── huc12_<xx>_meta.json       # now includes huc8_codes, huc8_names, per_huc8_sizes
+│       ├── huc12_<xx>_<huc8>.geojson  # one per HUC-8 basin in the state
+│       ├── huc8_<xx>.geojson          # dissolve, with basin names attached
 │       └── huc8_<xx>.pmtiles
 └── output/                         # gitignored, regenerable
     ├── huc12_<xx>.png
