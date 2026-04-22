@@ -1,14 +1,19 @@
 .venv/
 output/
-
-# Raw and heavy processed files — too large for git, hosted on GitHub Releases
-data/
-!data/
-!data/processed/
-!data/processed/*.pmtiles
-!data/processed/*_meta.json
 .DS_Store
 __pycache__/
 *.pyc
 *.pyo
 *.parquet
+
+# Editor
+.vscode/
+
+# Heavy generated data — distributed via GitHub Releases, not git.
+# Only the small tile + metadata files live in the repo (served via
+# GitHub Pages so the interactive map can render without the release
+# assets). The `*` + `!` pattern is deliberately structured so that
+# any new output format added to the pipeline is ignored by default.
+data/processed/*
+!data/processed/*.pmtiles
+!data/processed/*_meta.json
