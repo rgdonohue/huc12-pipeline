@@ -53,9 +53,10 @@ For each `--state XX` run:
 | `data/processed/huc12_<xx>.gpkg` | GeoPackage (QGIS/ArcGIS ready) |
 | `data/processed/huc12_<xx>_summary.csv` | Tabular reference |
 | `data/processed/huc12_<xx>.pmtiles` | Vector tiles for the web map |
-| `data/processed/huc8_<xx>.geojson` | HUC-8 basin dissolve |
+| `data/processed/huc8_<xx>.geojson` | HUC-8 basin dissolve (with basin names) |
 | `data/processed/huc8_<xx>.pmtiles` | HUC-8 vector tiles |
-| `data/processed/huc12_<xx>_meta.json` | Counts and HUC codes (read by web map) |
+| `data/processed/huc12_<xx>_<huc8>.geojson` | Per-basin subset, one file per HUC-8 in the state |
+| `data/processed/huc12_<xx>_meta.json` | Counts, HUC codes, basin names, per-basin sizes (read by web map) |
 | `output/huc12_<xx>.png` | Static map (configurable DPI) |
 | `output/huc12_<xx>.pdf` | Vector static map |
 
@@ -67,20 +68,27 @@ the tiles currently in view via HTTP range requests.
 
 Features:
 - HUC-12 polygons colored by HUC-4 subregion (no adjacent collisions)
-- HUC-8 basin boundaries as a separate overlay
-- Hover highlight + click popup with HUC codes and area
-- Download links for full-state GeoJSON, GeoPackage, and CSV
+- HUC-8 basin boundaries as a separate overlay, with named basins in the legend
+- Hover-highlight + cross-hover between map and legend
+- Click any HUC-12 for a popup with codes, area, containing basin name, and a basin-scoped download link
+- Click an HUC-8 on the map (or its legend row) to pin the basin — non-members dim, the download panel surfaces the per-basin GeoJSON
+- Full-state downloads (GeoJSON, GeoPackage, CSV) in the corner panel
+- Optional `?projects=<url>` query param: paints externally-tracked HUC-12s gold, shows project metadata in the popup — useful for "here's where our work lives inside the basin" maps without forking this repo
 
-To switch states, edit the `CONFIG` block at the top of `index.html`:
+Switch states via URL: `?state=nm` or `?state=co`. The `CONFIG` block at the top of `index.html` is derived from that param; edit only if you want to add a new state's data paths or change the download host.
 
-```js
-const CONFIG = {
-  pmtilesPath:     "data/processed/huc12_co.pmtiles",
-  huc8PmtilesPath: "data/processed/huc8_co.pmtiles",
-  metaPath:        "data/processed/huc12_co_meta.json",
-  downloadBaseUrl: "data/processed/",
-};
+**Projects overlay.** Host a JSON file shaped like:
+
+```json
+{
+  "name": "My org projects",
+  "projects": [
+    { "huc12": "130202010101", "name": "Site A", "status": "active", "url": "https://…" }
+  ]
+}
 ```
+
+Then load the map with `?projects=https://your-host/projects.json` (the source needs CORS enabled). Supports `name`, `status`, `description`, and `url` per entry.
 
 ## PMTiles requirement
 
@@ -106,3 +114,7 @@ feature carries the full HUC hierarchy (huc2–huc12) derived in the pipeline.
 
 - [National Map Viewer](https://apps.nationalmap.gov/viewer/)
 - [WBD product page](https://www.usgs.gov/national-hydrography/watershed-boundary-dataset)
+
+---
+
+Built by [Small Batch Maps](https://smallbatchmaps.com) — independent cartography focused on clarity and craft.

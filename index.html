@@ -47,6 +47,56 @@
     .state-pill:hover { color: #ccc; border-color: #555; }
     .state-pill.active { background: #2a4a6a; color: #8BBFDF; border-color: #3a6a9a; }
 
+    /* Header "About" button — same pill vocabulary as state pills */
+    .header-btn {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 3px; border: 1px solid #333; background: transparent;
+      color: #888; cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.15s; margin-left: 8px;
+    }
+    .header-btn:hover { color: #ccc; border-color: #555; }
+
+    /* About modal overlay */
+    #about-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(3px);
+      z-index: 50;
+      align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    #about-overlay.open { display: flex; }
+    #about-modal {
+      position: relative;
+      background: #141414; border: 1px solid #2a2a2a;
+      border-radius: 8px; padding: 24px 26px;
+      max-width: 520px; width: 100%;
+      max-height: calc(100dvh - 32px); overflow-y: auto;
+      color: #e8e4df; font-size: 13px; line-height: 1.55;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    }
+    #about-modal h2 {
+      font-size: 16px; font-weight: 600; margin-bottom: 14px;
+      color: #e8e4df; padding-right: 28px;
+    }
+    #about-modal p { color: #bbb; margin-bottom: 12px; }
+    #about-modal p strong { color: #e8e4df; }
+    #about-modal a { color: #8BBFDF; text-decoration: none; border-bottom: 1px dotted #5a7a9a; }
+    #about-modal a:hover { color: #c8dff0; border-bottom-color: #c8dff0; }
+    .about-close {
+      position: absolute; top: 10px; right: 12px;
+      background: transparent; border: none; color: #555;
+      font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px;
+    }
+    .about-close:hover { color: #e8e4df; }
+    .about-links {
+      display: flex; flex-wrap: wrap; gap: 14px;
+      padding: 10px 0; margin: 4px 0 14px;
+      border-top: 1px solid #222; border-bottom: 1px solid #222;
+      font-size: 12px;
+    }
+    .about-credit { font-size: 11px; color: #666; margin-bottom: 0 !important; }
+
     /* ---- Map ---- */
     #map { flex: 1; position: relative; }
 
@@ -263,6 +313,9 @@
       .legend-group { min-height: 34px; }
       .ctrl-action  { min-height: 40px; }
       .state-pill   { min-height: 30px; display: inline-flex; align-items: center; }
+      .header-btn   { min-height: 30px; margin-left: auto; }
+      #about-modal  { padding: 20px 18px; font-size: 12.5px; }
+      #about-modal h2 { font-size: 15px; }
 
       .maplibregl-popup-content { max-width: min(250px, 88vw) !important; }
 
@@ -294,7 +347,41 @@
     <a class="state-pill" href="?state=co" data-state="co">CO</a>
   </nav>
   <span class="sub">USGS WBD &nbsp;·&nbsp; <span id="feature-count">—</span> subwatersheds</span>
+  <button id="about-btn" class="header-btn" onclick="openAbout()" aria-label="About this project">About</button>
 </header>
+
+<!-- About modal — project explanation + Small Batch Maps link -->
+<div id="about-overlay" onclick="closeAbout(event)">
+  <div id="about-modal" role="dialog" aria-labelledby="about-title" aria-modal="true">
+    <button class="about-close" onclick="closeAbout()" aria-label="Close">×</button>
+    <h2 id="about-title">About this map</h2>
+    <p>
+      The <strong>HUC-12 Watershed Map</strong> turns a state abbreviation
+      into a fast, interactive map of every USGS HUC-12 subwatershed in that
+      state — plus publication-quality static output and data in every common
+      format (GeoJSON, GeoPackage, GeoParquet, CSV, PMTiles).
+    </p>
+    <p>
+      Data comes straight from the USGS Watershed Boundary Dataset. The
+      pipeline handles pagination, geometry cleanup, HUC-4/HUC-8 hierarchy
+      enrichment, and vector-tile generation, so the web map loads in a few
+      hundred KB instead of the ~100 MB the raw state file would otherwise
+      cost.
+    </p>
+    <p>
+      Click any basin (or the legend) to pin it; the popup then offers a
+      basin-scoped download. Full-state bundles live in the corner panel.
+    </p>
+    <div class="about-links">
+      <a href="https://smallbatchmaps.com" target="_blank" rel="noopener">smallbatchmaps.com ↗</a>
+      <a href="https://github.com/rgdonohue/huc12-pipeline" target="_blank" rel="noopener">source on GitHub ↗</a>
+    </div>
+    <p class="about-credit">
+      Built by <a href="https://smallbatchmaps.com" target="_blank" rel="noopener">Small Batch Maps</a>
+      — independent cartography focused on clarity and craft.
+    </p>
+  </div>
+</div>
 
 <div id="map">
   <div id="legend">
@@ -379,8 +466,8 @@ const CONFIG = {
 };
 
 const STATE_MAP = {
-  nm: { center: [-106.1, 34.5], zoom: 5.8, minZoom: 4.0, maxBounds: [[-114, 26], [ -98, 42]] },
-  co: { center: [-105.5, 39.0], zoom: 5.8, minZoom: 4.0, maxBounds: [[-114, 32], [ -97, 46]] },
+  nm: { center: [-106.1, 34.5], zoom: 5.8, minZoom: 3.0, maxBounds: [[-114, 26], [ -98, 42]] },
+  co: { center: [-105.5, 39.0], zoom: 5.8, minZoom: 3.0, maxBounds: [[-114, 32], [ -97, 46]] },
 };
 const SM = STATE_MAP[stateSlug] || STATE_MAP.nm;
 
@@ -683,11 +770,12 @@ map.on("load", async () => {
   setupProjectsOverlay();
 
   // Fit to data extent via PMTiles header metadata.
-  // Padding values clear the UI chrome:
-  //   top 135    — zoom controls (~122px tall at top-left)
-  //   left 260   — legend (~220px wide + offset)
-  //   right 220  — controls panel (~200px wide + offset)
-  //   bottom 55  — attribution bar
+  // Padding values reserve UI chrome so the state centers between the
+  // legend (left, full-height) and the download panel (right, top corner).
+  //   top 110    — zoom controls (~122px tall) with a touch of breathing
+  //   left 240   — legend (~220px wide + 12 offset + a little air)
+  //   right 190  — download panel header + breathing
+  //   bottom 70  — attribution bar + breathing
   try {
     const pt = new pmtiles.PMTiles(CONFIG.pmtilesPath);
     const h  = await pt.getHeader();
@@ -699,13 +787,13 @@ map.on("load", async () => {
         padding: mobile
           ? { top: 90, bottom: 80, left: 20, right: 20 }
           : narrow
-            ? { top: 150, bottom: 70, left: 270, right: 230 }
-            : { top: 135, bottom: 55, left: 260, right: 220 },
+            ? { top: 120, bottom: 80, left: 250, right: 200 }
+            : { top: 110, bottom: 70, left: 240, right: 190 },
         duration: 0,
       });
-      // Back off a touch so the state clears the chrome on narrower screens
-      // and leaves a little breathing room at first load.
-      map.setZoom(Math.max(map.getZoom() - 0.35, SM.minZoom));
+      // Back off more aggressively than a visual fit so the state clearly
+      // sits inside the chrome with air around it, not edge-to-edge.
+      map.setZoom(Math.max(map.getZoom() - 0.6, SM.minZoom));
     }
   } catch (err) {
     console.warn("fitBounds from PMTiles header failed; using default center/zoom:", err);
@@ -1065,6 +1153,21 @@ function renderBasinDownloadBlock(huc8, huc8Name) {
       <a class="popup-dl-link" href="${url}" download>↓ GeoJSON${sizeStr ? ` <span style="color:#555;">(${sizeStr})</span>` : ""}</a>
     </div>`;
 }
+
+// ---------------------------------------------------------------------------
+// About modal
+// ---------------------------------------------------------------------------
+function openAbout() {
+  document.getElementById("about-overlay").classList.add("open");
+}
+function closeAbout(ev) {
+  // Only close when clicking the backdrop itself or the X, not modal contents
+  if (ev && ev.target.id && ev.target.id !== "about-overlay") return;
+  document.getElementById("about-overlay").classList.remove("open");
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeAbout();
+});
 
 // ---------------------------------------------------------------------------
 // Mobile panel toggles
