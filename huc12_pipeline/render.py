@@ -12,6 +12,8 @@ Usage (from repo root):
 
 import argparse
 import math
+import re
+import sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -21,6 +23,8 @@ import matplotlib.patches as mpatches
 
 DATA_PROCESSED = Path("data/processed")
 OUTPUT_DIR     = Path("output")
+STATE_RE = re.compile(r"^[A-Z]{2}$")
+NON_CONUS_STATES = {"AK", "HI", "PR"}
 
 BG_COLOR    = "#F0EDE8"
 BORDER_COLOR = "#FFFFFF"
@@ -44,6 +48,19 @@ def assign_huc4_colors(gdf: gpd.GeoDataFrame) -> dict:
 
 def dissolve_huc8(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf.dissolve(by="huc8").reset_index()[["huc8", "geometry"]]
+
+
+def validate_state_arg(state: str) -> str:
+    normalized = state.upper()
+    if not STATE_RE.fullmatch(normalized):
+        raise ValueError(f"--state must be exactly two letters, got {state!r}")
+    if normalized in NON_CONUS_STATES:
+        print(
+            f"Warning: {normalized} is outside the CONUS Albers target area; "
+            "area and static-map distortion may be inappropriate.",
+            file=sys.stderr,
+        )
+    return normalized
 
 
 def render_map(gdf: gpd.GeoDataFrame, state_abbr: str, dpi: int = 200) -> None:
@@ -138,7 +155,10 @@ def main():
     parser.add_argument("--state", default="NM")
     parser.add_argument("--dpi",   default=200, type=int)
     args  = parser.parse_args()
-    state = args.state.upper()
+    try:
+        state = validate_state_arg(args.state)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     parquet_path = DATA_PROCESSED / f"huc12_{state.lower()}.parquet"
     geojson_path = DATA_PROCESSED / f"huc12_{state.lower()}.geojson"

@@ -42,7 +42,8 @@ The pipeline, given `--state XX`, produces:
 - **Not** HUC-10, HUC-14, or HUC-16. Layer 6 (HUC-12) only.
 - **Not** AK/HI/PR–accurate. Albers Equal Area is CONUS-tuned; areas for non-CONUS states will be wrong.
 - **Not** a hosted service. Local pipeline → local outputs.
-- **Not** PMTiles by default. Documented as a follow-on for big states.
+- **PMTiles is default web output.** The web map reads PMTiles from `data/processed/`;
+  GeoJSON remains a downloadable/interoperability output, not the browser source.
 
 ---
 
@@ -52,7 +53,7 @@ v1 ships when:
 
 1. `python scripts/fetch_huc12.py --state NM` runs cleanly end-to-end and produces all four data files (including HUC-8 dissolve).
 2. `python scripts/map_static.py --state NM` produces a PNG/PDF with no color collisions on adjacent basins, no fake legend entries, no clipped titles.
-3. `python -m http.server 8000` from the project root → `http://localhost:8000/` loads the web map, auto-fits, real HUC-8 overlay visible, hover does something visible, click popup populated.
+3. `npx serve . -p 8000` from the project root → `http://localhost:8000/` loads the web map with HTTP Range support for PMTiles, auto-fits, real HUC-8 overlay visible, hover does something visible, click popup populated.
 4. The same three commands work for one additional state (CO or AZ) without editing source — only `--state` changes.
 5. Total wall-clock from `git clone` to a finished NM map is under five minutes (excluding `pip install`).
 

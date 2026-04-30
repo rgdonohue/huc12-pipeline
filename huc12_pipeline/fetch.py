@@ -13,13 +13,20 @@ Usage (from repo root):
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 import geopandas as gpd
+import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from shapely.geometry import MultiPolygon, Polygon, mapping
+from shapely.geometry.polygon import orient
+from urllib3.util.retry import Retry
 
 WBD_BASE   = "https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer"
 OUT_FIELDS = "huc12,name,states,areasqkm,loaddate,shape_Length,shape_Area"
@@ -39,17 +46,118 @@ LAYER = {
 }
 
 DATA_PROCESSED = Path("data/processed")
+STATE_RE = re.compile(r"^[A-Z]{2}$")
+NON_CONUS_STATES = {"AK", "HI", "PR"}
+RETRY_STATUSES = (429, 500, 502, 503)
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _build_session() -> requests.Session:
+    retry = Retry(
+        total=4,
+        connect=4,
+        read=4,
+        status=4,
+        backoff_factor=1,
+        status_forcelist=RETRY_STATUSES,
+        allowed_methods=("GET",),
+        respect_retry_after_header=True,
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def _raise_arcgis_error(data: dict) -> None:
+    if "error" not in data:
+        return
+    err = data["error"]
+    message = err.get("message", "ArcGIS REST error")
+    details = "; ".join(err.get("details", []))
+    raise RuntimeError(f"{message}{': ' + details if details else ''}")
+
+
+def _request_json(session: requests.Session, url: str, params: dict) -> dict:
+    resp = session.get(url, params=params, timeout=60)
+    resp.raise_for_status()
+    data = resp.json()
+    _raise_arcgis_error(data)
+    return data
+
+
+def _expected_count(session: requests.Session, url: str, where: str) -> int:
+    data = _request_json(session, url, {
+        "where": where,
+        "returnCountOnly": "true",
+        "f": "json",
+    })
+    if "count" not in data:
+        raise RuntimeError(f"ArcGIS count response missing 'count': {data}")
+    return int(data["count"])
+
+
+def _close_ring(ring: list) -> list:
+    if not ring:
+        return ring
+    closed = [tuple(pt) for pt in ring]
+    if closed[0] != closed[-1]:
+        closed.append(closed[0])
+    return closed
+
+
 def _esri_geom_to_geojson(esri_geom: dict) -> dict:
+    """Convert ArcGIS polygon rings to valid GeoJSON Polygon/MultiPolygon geometry."""
     rings = esri_geom.get("rings", [])
     if not rings:
         return {"type": "Polygon", "coordinates": []}
-    return {"type": "Polygon", "coordinates": rings}
+
+    ring_items = []
+    for ring in rings:
+        closed = _close_ring(ring)
+        if len(closed) < 4:
+            continue
+        poly = Polygon(closed)
+        if poly.is_empty or poly.area == 0:
+            continue
+        ring_items.append({
+            "coords": closed,
+            "poly": poly,
+            "point": poly.representative_point(),
+        })
+
+    if not ring_items:
+        return {"type": "Polygon", "coordinates": []}
+
+    for item in ring_items:
+        containing = [
+            other for other in ring_items
+            if other is not item
+            and other["poly"].area > item["poly"].area
+            and other["poly"].contains(item["point"])
+        ]
+        item["depth"] = len(containing)
+
+    shells = [item for item in ring_items if item["depth"] % 2 == 0]
+    holes = [item for item in ring_items if item["depth"] % 2 == 1]
+
+    polygons = []
+    for shell in shells:
+        shell_holes = []
+        for hole in holes:
+            if hole["depth"] != shell["depth"] + 1:
+                continue
+            if shell["poly"].contains(hole["point"]):
+                shell_holes.append(hole["coords"])
+        polygons.append(orient(Polygon(shell["coords"], shell_holes), sign=1.0))
+
+    geom = polygons[0] if len(polygons) == 1 else MultiPolygon(polygons)
+    return mapping(geom)
 
 
 def _parse_esri_features(esri_data: dict) -> list:
@@ -69,10 +177,12 @@ def _generate_pmtiles(
     layer_name: str,
     min_zoom: int = 5,
 ) -> None:
-    """Convert GeoJSON to PMTiles via Tippecanoe (skipped if not installed)."""
+    """Convert GeoJSON to PMTiles via Tippecanoe."""
     if not shutil.which("tippecanoe"):
-        print(f"  Skipping PMTiles — tippecanoe not found in PATH")
-        return
+        raise RuntimeError(
+            "Tippecanoe is required to generate PMTiles for the web map. "
+            "Install it (for example: brew install tippecanoe) or skip the web-map output explicitly in a future CLI mode."
+        )
     cmd = [
         "tippecanoe",
         f"-Z{min_zoom}", "-zg",
@@ -89,6 +199,19 @@ def _generate_pmtiles(
     print(f"  Saved PMTiles  → {output_path}  ({size_mb:.1f} MB)")
 
 
+def validate_state_arg(state: str) -> str:
+    normalized = state.upper()
+    if not STATE_RE.fullmatch(normalized):
+        raise ValueError(f"--state must be exactly two letters, got {state!r}")
+    if normalized in NON_CONUS_STATES:
+        print(
+            f"Warning: {normalized} is outside the CONUS Albers target area; "
+            "area and static-map distortion may be inappropriate.",
+            file=sys.stderr,
+        )
+    return normalized
+
+
 # ---------------------------------------------------------------------------
 # Fetch
 # ---------------------------------------------------------------------------
@@ -100,21 +223,23 @@ def fetch_huc8_names(state_abbr: str, page_size: int = 500, pause: float = 0.5) 
     names (Rio Grande, Pecos, San Juan) instead of 8-digit codes.
     """
     url = f"{WBD_BASE}/{LAYER['huc8']}/query"
+    session = _build_session()
+    where = f"states LIKE '%{state_abbr}%'"
+    expected = _expected_count(session, url, where)
     names: dict = {}
     offset = 0
-    print(f"Fetching HUC-8 names for state={state_abbr} …")
+    fetched = 0
+    print(f"Fetching HUC-8 names for state={state_abbr} ({expected:,} expected) …")
     while True:
         params = {
-            "where":             f"states LIKE '%{state_abbr}%'",
+            "where":             where,
             "outFields":         "huc8,name",
             "f":                 "json",
             "resultOffset":      offset,
             "resultRecordCount": page_size,
             "returnGeometry":    "false",
         }
-        resp = requests.get(url, params=params, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
+        data = _request_json(session, url, params)
         feats = data.get("features", [])
         for f in feats:
             attrs = f.get("attributes", {})
@@ -122,10 +247,15 @@ def fetch_huc8_names(state_abbr: str, page_size: int = 500, pause: float = 0.5) 
             name = attrs.get("name") or attrs.get("Name")
             if code:
                 names[code] = name or code
+        fetched += len(feats)
         if not feats or not data.get("exceededTransferLimit", False):
             break
         offset += page_size
         time.sleep(pause)
+    if fetched != expected:
+        raise RuntimeError(
+            f"HUC-8 name fetch returned {fetched:,} features, expected {expected:,}."
+        )
     print(f"  {len(names)} HUC-8 names")
     return names
 
@@ -150,14 +280,17 @@ def fetch_huc_layer(
         GeoDataFrame in EPSG:4326.
     """
     url = f"{WBD_BASE}/{layer_idx}/query"
+    session = _build_session()
+    where = f"states LIKE '%{state_abbr}%'"
+    expected = _expected_count(session, url, where)
     features = []
     offset = 0
 
-    print(f"Fetching layer {layer_idx} for state={state_abbr} …")
+    print(f"Fetching layer {layer_idx} for state={state_abbr} ({expected:,} expected) …")
 
     while True:
         params = {
-            "where":             f"states LIKE '%{state_abbr}%'",
+            "where":             where,
             "outFields":         OUT_FIELDS,
             "outSR":             "4326",
             "f":                 "geojson",
@@ -166,18 +299,18 @@ def fetch_huc_layer(
             "returnGeometry":    "true",
         }
 
-        resp = requests.get(url, params=params, timeout=60)
+        resp = session.get(url, params=params, timeout=60)
 
         if resp.status_code == 500:
-            print(f"  HTTP 500 on f=geojson (offset={offset}), retrying with f=json …")
+            print(f"  HTTP 500 on f=geojson (offset={offset}), retrying with Esri JSON conversion …")
             params_retry = {**params, "f": "json"}
-            resp = requests.get(url, params=params_retry, timeout=60)
-            resp.raise_for_status()
-            page_features = _parse_esri_features(resp.json())
-            exceeded = resp.json().get("exceededTransferLimit", False)
+            data = _request_json(session, url, params_retry)
+            page_features = _parse_esri_features(data)
+            exceeded = data.get("exceededTransferLimit", False)
         else:
             resp.raise_for_status()
             data = resp.json()
+            _raise_arcgis_error(data)
             page_features = data.get("features", [])
             exceeded = data.get("exceededTransferLimit", False)
 
@@ -194,6 +327,11 @@ def fetch_huc_layer(
         time.sleep(pause)
 
     print(f"Total features: {len(features)}")
+
+    if len(features) != expected:
+        raise RuntimeError(
+            f"Layer {layer_idx} fetch returned {len(features):,} features, expected {expected:,}."
+        )
 
     if not features:
         raise ValueError(
@@ -215,15 +353,16 @@ def process(gdf: gpd.GeoDataFrame, state_abbr: str) -> gpd.GeoDataFrame:
     print("Processing …")
 
     invalid = ~gdf.geometry.is_valid
+    DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
+    invalid_csv = DATA_PROCESSED / f"huc12_{state_abbr.lower()}_invalid.csv"
     if invalid.any():
         print(f"  Fixing {invalid.sum()} invalid geometries …")
         gdf.loc[invalid, "geometry"] = gdf.loc[invalid, "geometry"].make_valid()
-        DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
-        invalid_csv = DATA_PROCESSED / f"huc12_{state_abbr.lower()}_invalid.csv"
-        (gdf[invalid][["huc12", "name"]]
-            .assign(reason="make_valid applied")
-            .to_csv(invalid_csv, index=False))
-        print(f"  Invalid geometry log → {invalid_csv}")
+
+    (gdf.loc[invalid, ["huc12", "name"]]
+        .assign(reason="make_valid applied")
+        .to_csv(invalid_csv, index=False))
+    print(f"  Invalid geometry log → {invalid_csv}")
 
     gdf = gdf[~gdf.geometry.is_empty].copy()
 
@@ -294,6 +433,13 @@ def save(gdf: gpd.GeoDataFrame, state_abbr: str, huc8_names: dict | None = None)
     size_mb = gpkg_path.stat().st_size / 1_048_576
     print(f"  Saved GPKG     → {gpkg_path}  ({size_mb:.1f} MB)")
 
+    # PMTiles (required by the web map)
+    pmtiles_path = DATA_PROCESSED / f"huc12_{slug}.pmtiles"
+    _generate_pmtiles(geojson_path, pmtiles_path, "huc12", min_zoom=5)
+
+    huc8_pmtiles_path = DATA_PROCESSED / f"huc8_{slug}.pmtiles"
+    _generate_pmtiles(huc8_path, huc8_pmtiles_path, "huc8", min_zoom=4)
+
     # Metadata JSON (used by web map for color building and download link sizes)
     state_huc8_codes = sorted(gdf["huc8"].unique().tolist())
     meta = {
@@ -311,17 +457,76 @@ def save(gdf: gpd.GeoDataFrame, state_abbr: str, huc8_names: dict | None = None)
             "csv":     csv_path.stat().st_size,
         },
         "per_huc8_sizes": per_huc8_sizes,
+        "pmtiles_huc12": pmtiles_path.exists(),
+        "pmtiles_huc8":  huc8_pmtiles_path.exists(),
     }
     meta_path = DATA_PROCESSED / f"huc12_{slug}_meta.json"
     meta_path.write_text(json.dumps(meta, indent=2))
     print(f"  Saved meta     → {meta_path}")
 
-    # PMTiles (requires tippecanoe; skipped gracefully if not available)
-    pmtiles_path = DATA_PROCESSED / f"huc12_{slug}.pmtiles"
-    _generate_pmtiles(geojson_path, pmtiles_path, "huc12", min_zoom=5)
-
+def validate_outputs(state_abbr: str) -> None:
+    """Assert state output feature counts and metadata are internally consistent."""
+    slug = state_abbr.lower()
+    geojson_path = DATA_PROCESSED / f"huc12_{slug}.geojson"
+    parquet_path = DATA_PROCESSED / f"huc12_{slug}.parquet"
+    gpkg_path = DATA_PROCESSED / f"huc12_{slug}.gpkg"
+    csv_path = DATA_PROCESSED / f"huc12_{slug}_summary.csv"
+    huc8_path = DATA_PROCESSED / f"huc8_{slug}.geojson"
+    meta_path = DATA_PROCESSED / f"huc12_{slug}_meta.json"
+    huc12_pmtiles_path = DATA_PROCESSED / f"huc12_{slug}.pmtiles"
     huc8_pmtiles_path = DATA_PROCESSED / f"huc8_{slug}.pmtiles"
-    _generate_pmtiles(huc8_path, huc8_pmtiles_path, "huc8", min_zoom=4)
+
+    paths = [
+        geojson_path, parquet_path, gpkg_path, csv_path,
+        huc8_path, meta_path, huc12_pmtiles_path, huc8_pmtiles_path,
+    ]
+    missing = [str(path) for path in paths if not path.exists()]
+    if missing:
+        raise AssertionError(f"Missing output files: {', '.join(missing)}")
+
+    geojson = gpd.read_file(geojson_path)
+    parquet = gpd.read_parquet(parquet_path)
+    gpkg = gpd.read_file(gpkg_path, layer=f"huc12_{slug}")
+    csv = pd.read_csv(csv_path, dtype=str)
+    huc8 = gpd.read_file(huc8_path)
+    meta = json.loads(meta_path.read_text())
+
+    counts = {
+        "geojson": len(geojson),
+        "parquet": len(parquet),
+        "gpkg": len(gpkg),
+        "csv": len(csv),
+        "meta": int(meta["huc12_count"]),
+    }
+    if len(set(counts.values())) != 1:
+        raise AssertionError(f"HUC-12 count mismatch: {counts}")
+
+    huc8_count = int(meta["huc8_count"])
+    if len(huc8) != huc8_count:
+        raise AssertionError(f"HUC-8 count mismatch: huc8={len(huc8)}, meta={huc8_count}")
+
+    subset_count = 0
+    for path in DATA_PROCESSED.glob(f"huc12_{slug}_[0-9]*.geojson"):
+        code = path.stem.split("_")[-1]
+        subset = gpd.read_file(path)
+        if not (subset["huc8"].astype(str) == code).all():
+            raise AssertionError(f"Subset {path} contains features outside HUC-8 {code}")
+        subset_count += len(subset)
+
+    if subset_count != counts["geojson"]:
+        raise AssertionError(
+            f"Per-HUC-8 subset count mismatch: subsets={subset_count}, state={counts['geojson']}"
+        )
+
+    if sorted(geojson["huc8"].unique().tolist()) != meta["huc8_codes"]:
+        raise AssertionError("Metadata huc8_codes do not match GeoJSON huc8 values")
+
+    if "pmtiles_huc12" in meta and bool(meta["pmtiles_huc12"]) != huc12_pmtiles_path.exists():
+        raise AssertionError("Metadata pmtiles_huc12 flag does not match file existence")
+    if "pmtiles_huc8" in meta and bool(meta["pmtiles_huc8"]) != huc8_pmtiles_path.exists():
+        raise AssertionError("Metadata pmtiles_huc8 flag does not match file existence")
+
+    print(f"  Validated outputs for {state_abbr}: {counts['geojson']:,} HUC-12 units")
 
 
 # ---------------------------------------------------------------------------
@@ -336,17 +541,34 @@ def main():
         "--state", default="NM",
         help="Two-letter state abbreviation (default: NM)"
     )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate generated output counts and metadata after saving."
+    )
     args = parser.parse_args()
-    state = args.state.upper()
+    try:
+        state = validate_state_arg(args.state)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     gdf_raw   = fetch_huc_layer(LAYER["huc12"], state)
     gdf       = process(gdf_raw, state)
-    huc8_name = fetch_huc8_names(state)
+    try:
+        huc8_name = fetch_huc8_names(state)
+    except Exception as exc:
+        print(
+            f"Warning: could not fetch HUC-8 names for {state}; continuing with code-only labels. {exc}",
+            file=sys.stderr,
+        )
+        huc8_name = {}
     save(gdf, state, huc8_names=huc8_name)
+    if args.validate:
+        validate_outputs(state)
 
     print("\nDone. Next steps:")
     print(f"  python scripts/map_static.py --state {state}")
-    print("  python -m http.server 8000  # then open http://localhost:8000/")
+    print("  npx serve . -p 8000  # then open http://localhost:8000/")
 
 
 if __name__ == "__main__":

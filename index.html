@@ -584,6 +584,7 @@ let popup          = null;
 let hoverEmphasis  = null;  // { type: "huc8"|"huc4"|"huc2", code } — from legend hover
 let pinnedEmphasis = null;  // { type: "huc8"|"huc4"|"huc2", code } — from legend click
 let projectsMap    = null;  // { huc12_code: { ...project } } — active overlay, or null
+const MAX_PROJECT_CODES = 500;
 
 // ---------------------------------------------------------------------------
 // Emphasis — dim non-matching, brighten matching HUC-4 or HUC-2 family
@@ -994,31 +995,37 @@ function setupInteractions() {
 
     const projectBlock = renderProjectPopupBlock(huc12);
     const basinBlock   = renderBasinDownloadBlock(huc8, huc8Name);
+    const safeName = escapeHtml(String(name));
+    const safeHuc12 = escapeHtml(String(huc12));
+    const safeHuc8Label = escapeHtml(String(huc8Label));
+    const safeHuc4Label = escapeHtml(String(huc4Label));
+    const safeArea = escapeHtml(String(area));
+    const safeStates = escapeHtml(String(states));
 
     if (popup) popup.remove();
     popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
       .setLngLat(e.lngLat)
       .setHTML(`
-        <div class="popup-title">${name}</div>
+        <div class="popup-title">${safeName}</div>
         <div class="popup-row">
           <span class="popup-label">HUC-12</span>
-          <span class="popup-value">${huc12}</span>
+          <span class="popup-value">${safeHuc12}</span>
         </div>
         <div class="popup-row">
           <span class="popup-label">HUC-8 basin</span>
-          <span class="popup-value">${huc8Label}</span>
+          <span class="popup-value">${safeHuc8Label}</span>
         </div>
         <div class="popup-row">
           <span class="popup-label">HUC-4 subregion</span>
-          <span class="popup-value">${huc4Label}</span>
+          <span class="popup-value">${safeHuc4Label}</span>
         </div>
         <div class="popup-row">
           <span class="popup-label">Area</span>
-          <span class="popup-value">${area}</span>
+          <span class="popup-value">${safeArea}</span>
         </div>
         <div class="popup-row">
           <span class="popup-label">States</span>
-          <span class="popup-value">${states}</span>
+          <span class="popup-value">${safeStates}</span>
         </div>
         ${projectBlock}
         ${basinBlock}
@@ -1052,12 +1059,35 @@ async function setupProjectsOverlay() {
     return;
   }
 
-  const projects = Array.isArray(payload) ? payload : (payload.projects || []);
+  let projects;
+  if (Array.isArray(payload)) {
+    projects = payload;
+  } else if (payload && typeof payload === "object" && Array.isArray(payload.projects)) {
+    projects = payload.projects;
+  } else {
+    console.warn("Projects JSON must be an array or an object with a projects array.");
+    return;
+  }
   if (!projects.length) return;
 
   projectsMap = {};
+  let accepted = 0;
   for (const p of projects) {
-    if (p && p.huc12) projectsMap[String(p.huc12)] = p;
+    if (!p || typeof p !== "object") continue;
+    const code = String(p.huc12 || "");
+    if (!/^\d{12}$/.test(code)) continue;
+    const project = { ...p, huc12: code };
+    if (project.url) {
+      const safeUrl = safeHttpUrl(project.url);
+      if (safeUrl) project.url = safeUrl;
+      else delete project.url;
+    }
+    projectsMap[code] = project;
+    accepted += 1;
+    if (accepted >= MAX_PROJECT_CODES) {
+      console.warn(`Projects overlay capped at ${MAX_PROJECT_CODES} HUC-12 codes.`);
+      break;
+    }
   }
   const codes = Object.keys(projectsMap);
   if (!codes.length) return;
@@ -1090,7 +1120,9 @@ async function setupProjectsOverlay() {
   }, "huc8-line");
 
   const banner = document.getElementById("projects-banner");
-  const name   = payload.name || "External projects";
+  const name = (!Array.isArray(payload) && payload && typeof payload === "object" && payload.name)
+    ? payload.name
+    : "External projects";
   document.getElementById("projects-banner-name").textContent = name;
   document.getElementById("projects-banner-count").textContent =
     `· ${codes.length} HUC-12${codes.length === 1 ? "" : "s"}`;
@@ -1131,6 +1163,17 @@ function escapeHtml(s) {
   }[c]));
 }
 
+function safeHttpUrl(value) {
+  try {
+    const parsed = new URL(String(value), window.location.href);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:")
+      ? parsed.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // Popup-local basin download CTA. Links directly at the per-HUC-8 GeoJSON
 // for the basin containing the clicked cell — the scale the user is
 // actually looking at. State-wide downloads remain one click away in the
@@ -1162,7 +1205,7 @@ function openAbout() {
 }
 function closeAbout(ev) {
   // Only close when clicking the backdrop itself or the X, not modal contents
-  if (ev && ev.target.id && ev.target.id !== "about-overlay") return;
+  if (ev && ev.target !== document.getElementById("about-overlay")) return;
   document.getElementById("about-overlay").classList.remove("open");
 }
 document.addEventListener("keydown", (e) => {
